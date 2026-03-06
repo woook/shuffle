@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from cyvcf2 import VCF, Writer, Variant
+    from cyvcf2 import VCF
 except ImportError as exc:
     raise ImportError(
         "cyvcf2 is required. Install it with: pip install cyvcf2"
@@ -103,7 +103,6 @@ class SyntheticVCFWriter:
         self.output_dir = output_dir
         self.sample_names = sample_names
         self.output_mode = output_mode
-        self.n_samples = len(sample_names)
 
         provenance = _make_provenance_line(version, seed, chromosome)
 
@@ -145,22 +144,24 @@ class SyntheticVCFWriter:
         synthetic_dosages : np.ndarray, shape (n_variants, n_synthetic_samples), uint8
             Synthetic dosage matrix from mosaic_builder.build_synthetic_genotypes.
         """
-        assert synthetic_dosages.shape == (pool.n_variants, self.n_samples), (
-            f"synthetic_dosages shape {synthetic_dosages.shape} does not match "
-            f"({pool.n_variants}, {self.n_samples})"
-        )
+        n_out = len(self.sample_names)
+        if synthetic_dosages.shape != (pool.n_variants, n_out):
+            raise ValueError(
+                f"synthetic_dosages shape {synthetic_dosages.shape} does not match "
+                f"({pool.n_variants}, {n_out})"
+            )
 
         if self.output_mode == "multi_sample":
             writer = self._writers[0]
             for v_idx, vi in enumerate(pool.variant_info):
                 gt_fields = "\t".join(
                     _dosage_to_gt_str(synthetic_dosages[v_idx, s])
-                    for s in range(self.n_samples)
+                    for s in range(n_out)
                 )
                 writer.write(self._format_record(vi, gt_fields))
         else:
-            for s_idx, writer in enumerate(self._writers):
-                for v_idx, vi in enumerate(pool.variant_info):
+            for v_idx, vi in enumerate(pool.variant_info):
+                for s_idx, writer in enumerate(self._writers):
                     gt_field = _dosage_to_gt_str(synthetic_dosages[v_idx, s_idx])
                     writer.write(self._format_record(vi, gt_field))
 

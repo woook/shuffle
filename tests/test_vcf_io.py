@@ -84,7 +84,7 @@ def test_genotype_pool_shape() -> None:
 
 
 def test_genotype_pool_dimension_mismatch_raises() -> None:
-    with pytest.raises(AssertionError):
+    with pytest.raises((AssertionError, ValueError)):
         GenotypePool(
             dosages=np.zeros((5, 3), dtype=np.uint8),
             positions=np.zeros(4, dtype=np.int64),   # wrong length

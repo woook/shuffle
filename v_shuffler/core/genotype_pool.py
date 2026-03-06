@@ -16,7 +16,7 @@ from dosage.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -62,12 +62,15 @@ class GenotypePool:
 
     def __post_init__(self) -> None:
         n = len(self.variant_info)
-        assert self.dosages.shape[0] == n, (
-            f"dosages first dimension {self.dosages.shape[0]} != "
-            f"len(variant_info) {n}"
-        )
-        assert self.positions.shape == (n,)
-        assert self.cm_pos.shape == (n,)
+        if self.dosages.shape[0] != n:
+            raise ValueError(
+                f"dosages first dimension {self.dosages.shape[0]} != "
+                f"len(variant_info) {n}"
+            )
+        if self.positions.shape != (n,):
+            raise ValueError(f"positions shape {self.positions.shape} != ({n},)")
+        if self.cm_pos.shape != (n,):
+            raise ValueError(f"cm_pos shape {self.cm_pos.shape} != ({n},)")
 
     @property
     def n_variants(self) -> int:

@@ -52,25 +52,6 @@ def _gt_to_dosage(gt: list) -> int:
     return int(a1 > 0) + int(a2 > 0)
 
 
-def _genotypes_to_dosages(variant) -> np.ndarray:
-    """
-    Extract dosage array for all samples at one variant.
-
-    Parameters
-    ----------
-    variant : cyvcf2.Variant
-
-    Returns
-    -------
-    np.ndarray, shape (n_samples,), dtype uint8
-    """
-    gts = variant.genotypes  # list of [a1, a2, phased] per sample
-    n = len(gts)
-    dosages = np.empty(n, dtype=np.uint8)
-    for i, gt in enumerate(gts):
-        dosages[i] = _gt_to_dosage(gt)
-    return dosages
-
 
 class PerSampleVCFReader:
     """
@@ -153,7 +134,7 @@ class PerSampleVCFReader:
                 continue
 
             v0 = variants[0]
-            cm = float(self.genetic_map.bp_to_cm(np.array([v0.POS]))[0])
+            cm = float(self.genetic_map.bp_to_cm(v0.POS))
 
             chunk_dosages.append(dosages)
             chunk_positions.append(v0.POS)

@@ -175,10 +175,12 @@ pathlib.Path("$WORK_DIR/split_list.txt").write_text(
     "\n".join(str(f) for f in files) + "\n"
 )
 
-# sex file: extract F/M from the sample name (same -9526-F- / -9526-M- pattern)
+# sex file: extract F/M from the sample name.
+# Pattern: look for -F- or -M- between two fields that are numbers / IDs,
+# e.g. -5877-F-92197814 or -9526-M-103698. Matches any panel code.
 sex_lines = []
 for f in files:
-    m = re.search(r"-9526-([FM])[-_]", f.name)
+    m = re.search(r"-([FM])-\d{5,}", f.name)
     if m:
         sex_lines.append(f"{f}  {m.group(1)}")
 pathlib.Path("$WORK_DIR/sex_file.txt").write_text(

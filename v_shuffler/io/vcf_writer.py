@@ -43,16 +43,23 @@ def _dosage_to_gt_str(dosage: int) -> str:
     return _DOSAGE_TO_GT.get(int(dosage), "./.")
 
 
+_HTSLIB_MISSING_INT = -2_147_483_648  # htslib sentinel for missing integer FORMAT fields
+
+
 def _format_float(val: float) -> str:
     """
     Format a float value for a VCF FORMAT field.
 
-    - NaN  → "."
-    - Whole numbers (e.g. depth) → integer string ("127")
+    - NaN or htslib missing-integer sentinel (-2147483648) → "."
+    - Non-negative whole numbers (e.g. depth) → integer string ("127")
     - Fractional values → compact 4-significant-figure form ("0.4531")
+
+    The htslib sentinel arises for integer FORMAT fields (DP, AD, etc.) that
+    are absent in filled-in 0/0 genotypes produced by bcftools merge
+    --missing-to-ref; cyvcf2 returns -2147483648 for these rather than NaN.
     """
     import math
-    if math.isnan(val):
+    if math.isnan(val) or int(val) == _HTSLIB_MISSING_INT:
         return "."
     if float(val) == int(float(val)) and float(val) >= 0:
         return str(int(float(val)))

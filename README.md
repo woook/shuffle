@@ -28,7 +28,14 @@ segments; no original individual's genome appears in the output intact.
 5. [CLI reference](#cli-reference)
    - [shuffle](#shuffle)
    - [validate](#validate)
-6. [Input requirements](#input-requirements)
+6. [Inputs and assumptions](#inputs-and-assumptions)
+   - [Normalisation (required)](#normalisation-required)
+   - [One VCF per sample](#one-vcf-per-sample)
+   - [Phasing](#phasing)
+   - [Site concordance across VCFs](#site-concordance-across-vcfs)
+   - [File format and indexing](#file-format-and-indexing)
+   - [Cohort size](#cohort-size)
+   - [Ploidy](#ploidy)
 7. [Module and API reference](#module-and-api-reference)
    - [config.py — ShufflerConfig](#configpy--shufflerconfig)
    - [io/genetic_map.py — GeneticMap](#iogenetic_mapy--geneticmap)
@@ -576,21 +583,113 @@ described in [Test suite](#test-suite).
 
 ---
 
-## Input requirements
+## Inputs and assumptions
 
-- **One VCF per sample** — typically 100–2 000 files.
-- VCFs need **not** be phased; unphased `0/1` calls are used directly.
-- All VCFs must cover the **same set of variants** in the same order
-  (identical CHROM/POS/REF/ALT). Use `bcftools isec` to intersect sites if
-  needed.
-- VCFs should be **bgzipped and tabix-indexed** (`.vcf.gz` + `.vcf.gz.tbi`).
-  Plain `.vcf` files work but are slower (no random-access region query).
-- **Chromosome naming** — `chr`-prefixed (`chr22`) and bare (`22`) contig
-  names are both accepted. The tool detects which convention the VCFs use and
-  normalises automatically; no manual alignment between the `--chromosome`
-  flag and the VCF header is required.
-- **Minimum meaningful cohort:** ≥ 100 donors. Below this, one donor
-  dominates each synthetic individual and re-identification risk is high.
+### Normalisation (required)
+
+v-shuffler represents every genotype as a single integer dosage (0/1/2 for
+hom-ref, het, hom-alt). This is unambiguous for biallelic sites, but
+**multi-allelic records collapse to the wrong representation**: a donor with
+`0/2` (one copy of ALT allele 2) and a donor with `0/1` (one copy of ALT
+allele 1) both encode to dosage 1, and are written back as `0/1` — the
+wrong allele for the `0/2` donor.
+
+**Input VCFs must be normalised before running v-shuffler.** The required
+preprocessing step is:
+
+```bash
+bcftools norm \
+    -m -any \        # split all multiallelic records into separate biallelic records
+    --keep-sum AD \  # sum allelic depth across split records rather than discarding
+    input.vcf.gz \
+    -Oz -o normalised.vcf.gz
+tabix -p vcf normalised.vcf.gz
+```
+
+To also left-align indels (strongly recommended whenever a reference FASTA is
+available, as it ensures equivalent indel representations are merged to
+identical records):
+
+```bash
+bcftools norm \
+    -m -any \
+    --keep-sum AD \
+    -f /path/to/reference.fa \   # left-aligns indels against the reference
+    input.vcf.gz \
+    -Oz -o normalised.vcf.gz
+tabix -p vcf normalised.vcf.gz
+```
+
+For a cohort of per-sample VCFs:
+
+```bash
+for f in data/per_sample/*.vcf.gz; do
+    base=$(basename "$f" .vcf.gz)
+    bcftools norm -m -any --keep-sum AD -f ref.fa "$f" \
+        -Oz -o "normalised/${base}.vcf.gz"
+    tabix -p vcf "normalised/${base}.vcf.gz"
+done
+```
+
+After normalisation every ALT column contains exactly one allele, dosage 1
+unambiguously means one copy of that allele, and v-shuffler's dosage model is
+fully correct.
+
+### One VCF per sample
+
+v-shuffler reads one file per donor, each containing exactly one sample
+column. Multi-sample VCFs must be split first:
+
+```bash
+bcftools +split -Oz merged.vcf.gz -o per_sample/
+```
+
+Typically 100–2 000 donor files are used.
+
+### Phasing
+
+VCFs need **not** be phased. Unphased `0/1` and phased `0|1` calls are both
+treated as dosage 1 — the phase separator is ignored on read. The shuffled
+output is always written as unphased (`/` separator).
+
+### Site concordance across VCFs
+
+All per-sample VCFs must cover **exactly the same set of variants in the same
+order** (identical CHROM/POS/REF/ALT tuples). Site consistency is validated
+across files on the first chunk and a clear error is raised on mismatch.
+
+If samples were genotyped at different site sets, intersect them before
+running:
+
+```bash
+bcftools isec -p isec_out/ -Oz \
+    normalised/sample0.vcf.gz \
+    normalised/sample1.vcf.gz \
+    ... \
+    normalised/sampleN.vcf.gz
+```
+
+### File format and indexing
+
+VCFs should be **bgzipped and tabix-indexed** (`.vcf.gz` + `.vcf.gz.tbi` or
+`.csi`). Plain `.vcf` files work but require full-file iteration rather than a
+tabix region query, which is substantially slower for large datasets.
+
+Both `chr22` and `22` chromosome naming conventions are accepted; the tool
+detects which form the VCFs use and normalises automatically.
+
+### Cohort size
+
+A minimum of **100 donors** is recommended. With fewer, one individual tends
+to dominate each synthetic individual and re-identification risk is high. The
+re-identification attack metrics (P2, P4) worsen non-linearly as pool size
+falls below ~50.
+
+### Ploidy
+
+v-shuffler assumes **diploid autosomes** throughout. Dosage semantics (0/1/2)
+are defined for diploid calls. For sex chromosomes, see
+[Sex chromosome donor filtering](#sex-chromosome-donor-filtering).
 
 ---
 
@@ -1304,10 +1403,14 @@ is unnecessary) are not penalised.
 
 ### Multi-allelic sites
 
-Multi-allelic sites are stored as total alt-allele count. If a site has two
-alt alleles (e.g. REF=A, ALT=C,G), a donor with dosage 1 for allele C and 0
-for allele G will be encoded identically to one with dosage 0 for C and 1 for
-G. The specific allele identity is not tracked.
+v-shuffler encodes genotypes as a total alt-allele dosage (0/1/2), which
+collapses alt-allele identity: `0/1` (one copy of ALT1) and `0/2` (one copy
+of ALT2) both become dosage 1 and are written back as `0/1`. **This is
+resolved by the normalisation requirement** — splitting all multiallelic
+records to biallelic with `bcftools norm -m -any --keep-sum AD` before
+running v-shuffler ensures there is exactly one ALT allele per record, making
+the dosage representation unambiguous. See
+[Normalisation (required)](#normalisation-required).
 
 ---
 
@@ -1320,6 +1423,7 @@ G. The specific allele identity is not tracked.
 | B1 AF r < 0.99 | Donor pool imbalance or population stratification | Verify all donors are from the same population; check `--chromosome` is the right chromosome |
 | Output VCFs are empty (0 variants) | Chromosome name could not be resolved | Run with `--verbose` to see whether normalisation fired; check VCF `##contig` headers |
 | B2 het rate shift | Systematic genotype encoding error | Check that dosage encoding is 0/1/2, not 0/1/1 |
+| Unexpected allele identities in output (e.g. wrong ALT allele at het sites) | Multi-allelic records in input not decomposed | Run `bcftools norm -m -any --keep-sum AD` on all donor VCFs before shuffling |
 | B3 HWE excess > 3× | Many variants near segment boundaries | Check R3 segment length distribution; consider longer segments |
 | B5 synthetics outside PCA cloud | AF bias or population stratification in donor pool | Check all donors come from the same population |
 | B6 elevated long-range LD | Expected artefact of unphased diploid-mosaic design | Not a bug; document as known limitation |

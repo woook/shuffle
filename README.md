@@ -1,4 +1,4 @@
-# v-shuffler
+# shuffle
 
 Anonymise genomic VCF files via simulated meiotic recombination. Each
 synthetic output individual is a diploid mosaic of genotype segments drawn

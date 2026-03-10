@@ -20,6 +20,9 @@ class ShufflerConfig:
     n_output_samples: int
     seed: int | None = None
 
+    # Donor sex map (optional; used to filter donors for chrX/chrY)
+    sex_file: Path | None = None  # two-column donor-sex file (path F/M)
+
     # Recombination parameters
     min_segment_cM: float = 0.5
     n_crossovers_lambda: float | None = None  # None = derived from map length
@@ -52,3 +55,5 @@ class ShufflerConfig:
             raise ValueError("region_gap_bp must be >= 1")
         if self.min_donors_per_synthetic < 1:
             raise ValueError("min_donors_per_synthetic must be >= 1")
+        if self.sex_file is not None and not self.sex_file.exists():
+            raise ValueError(f"sex_file does not exist: {self.sex_file}")

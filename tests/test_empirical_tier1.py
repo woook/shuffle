@@ -18,7 +18,10 @@ import pytest
 from scipy.stats import kstest, poisson
 
 from v_shuffler.core.recombination import (
+    build_region_segment_plan,
     build_segment_plan,
+    detect_regions,
+    generate_all_region_plans,
     simulate_crossover_breakpoints,
 )
 from v_shuffler.io.genetic_map import GeneticMap
@@ -36,7 +39,32 @@ _MAP_TEXT = textwrap.dedent("""\
     15000000 chr1 150.0
 """)
 
-N_REPS = 10_000  # Monte Carlo repetitions for each statistical test
+N_REPS = 10_000  # Monte Carlo repetitions for R1–R3
+
+# ---------------------------------------------------------------------------
+# Panel-like positions fixture for R4–R6
+# 100 regions × 20 variants, 100 bp intra-region spacing, 500 kb inter-region gaps
+# ---------------------------------------------------------------------------
+
+N_REGIONS = 100
+N_VARIANTS_PER_REGION = 20
+INTRA_SPACING_BP = 100
+INTER_GAP_BP = 500_000
+REGION_GAP_THRESHOLD = 10_000
+
+
+def _make_panel_positions() -> np.ndarray:
+    """Build the 100-region panel position array (deterministic)."""
+    all_pos: list[int] = []
+    region_start = 1_000_000
+    for _ in range(N_REGIONS):
+        for j in range(N_VARIANTS_PER_REGION):
+            all_pos.append(region_start + j * INTRA_SPACING_BP)
+        region_start += INTER_GAP_BP
+    return np.array(all_pos, dtype=np.int64)
+
+
+_PANEL_POSITIONS = _make_panel_positions()
 
 
 @pytest.fixture(scope="module")
@@ -171,3 +199,123 @@ def test_r3_mean_segment_length(gmap_150: GeneticMap) -> None:
         f"Mean segment length {empirical_mean:.3f} cM deviates from "
         f"expected {expected_mean:.3f} cM by {rel_error:.2%}; threshold is 2%."
     )
+
+
+# ---------------------------------------------------------------------------
+# R4: Region Detection Accuracy
+# ---------------------------------------------------------------------------
+
+
+def test_r4_region_detection_count() -> None:
+    """R4 — detect_regions returns exactly N_REGIONS regions from the panel positions."""
+    regions = detect_regions(_PANEL_POSITIONS, gap_threshold_bp=REGION_GAP_THRESHOLD)
+    assert len(regions) == N_REGIONS, (
+        f"Expected {N_REGIONS} regions, got {len(regions)}."
+    )
+
+
+def test_r4_region_boundaries() -> None:
+    """R4 — Each region spans exactly N_VARIANTS_PER_REGION variants."""
+    regions = detect_regions(_PANEL_POSITIONS, gap_threshold_bp=REGION_GAP_THRESHOLD)
+    expected_span = (N_VARIANTS_PER_REGION - 1) * INTRA_SPACING_BP
+    for i, (start, end) in enumerate(regions):
+        span = end - start
+        assert span == expected_span, (
+            f"Region {i}: span={span} bp, expected {expected_span} bp."
+        )
+
+
+# ---------------------------------------------------------------------------
+# R5: Cross-Region Donor Independence
+# ---------------------------------------------------------------------------
+
+_N_REPS_R5 = 1_000
+_N_DONORS_R5 = 200
+
+
+def test_r5_cross_region_independence(gmap_150: GeneticMap) -> None:
+    """
+    R5 — Cross-region co-assignment frequency is within 2% of 1/N_DONORS.
+
+    Under independence, the probability that the same donor is assigned to
+    region i and region j equals 1/N_DONORS.  We verify the mean co-assignment
+    rate over all region pairs is close to this expectation.
+    """
+    regions = detect_regions(_PANEL_POSITIONS, gap_threshold_bp=REGION_GAP_THRESHOLD)
+    bp_flat = np.array([[r[0], r[1]] for r in regions], dtype=np.int64).ravel()
+    # Synthesise a trivial uniform cM map for region coordinates
+    cm_flat = (bp_flat / 1_000_000.0)  # 1 Mb → 1 cM (arbitrary scale)
+    regions_cm = [(float(cm_flat[2 * i]), float(cm_flat[2 * i + 1])) for i in range(len(regions))]
+
+    rng = np.random.default_rng(42)
+    n_regions = len(regions_cm)
+
+    # Accumulate co-assignment counts across Monte Carlo reps
+    # co_count[i, j] = number of reps where region i and j share the same donor
+    co_count = np.zeros((n_regions, n_regions), dtype=np.int64)
+
+    for _ in range(_N_REPS_R5):
+        plan = build_region_segment_plan(regions_cm, n_samples=_N_DONORS_R5, rng=rng)
+        donors = np.array([seg.sample_idx for seg in plan], dtype=np.int64)
+        # Broadcast comparison: co_assign[i,j] = (donors[i] == donors[j])
+        co_count += (donors[:, np.newaxis] == donors[np.newaxis, :]).astype(np.int64)
+
+    # Exclude diagonal (self-comparison)
+    np.fill_diagonal(co_count, 0)
+    n_off_diag = n_regions * (n_regions - 1)
+    mean_co_rate = float(co_count.sum()) / (_N_REPS_R5 * n_off_diag)
+    expected_rate = 1.0 / _N_DONORS_R5
+
+    assert abs(mean_co_rate - expected_rate) < 0.02 * expected_rate + 0.0005, (
+        f"Mean cross-region co-assignment rate {mean_co_rate:.6f} deviates from "
+        f"expected {expected_rate:.6f} by more than 2% + 0.0005.  "
+        "This suggests regions are NOT assigned independently."
+    )
+
+
+# ---------------------------------------------------------------------------
+# R6: min_donors Constraint Reliability
+# ---------------------------------------------------------------------------
+
+_N_REPS_R6 = 1_000
+
+
+def test_r6_min_donors_always_satisfied() -> None:
+    """R6 — With min_donors=10 and 200 donors, 100% of plans have ≥ 10 distinct donors."""
+    regions = detect_regions(_PANEL_POSITIONS, gap_threshold_bp=REGION_GAP_THRESHOLD)
+    bp_flat = np.array([[r[0], r[1]] for r in regions], dtype=np.int64).ravel()
+    cm_flat = bp_flat / 1_000_000.0
+    regions_cm = [(float(cm_flat[2 * i]), float(cm_flat[2 * i + 1])) for i in range(len(regions))]
+
+    rng = np.random.default_rng(7)
+    min_donors = 10
+    n_samples = 200
+
+    fails = 0
+    for _ in range(_N_REPS_R6):
+        plan = build_region_segment_plan(regions_cm, n_samples=n_samples, rng=rng, min_donors=min_donors)
+        if len({seg.sample_idx for seg in plan}) < min_donors:
+            fails += 1
+
+    assert fails == 0, (
+        f"{fails}/{_N_REPS_R6} plans had fewer than {min_donors} distinct donors."
+    )
+
+
+def test_r6_min_donors_capped_by_n_regions() -> None:
+    """R6 — With min_donors=200 and 100 regions, all plans have exactly 100 distinct donors."""
+    regions = detect_regions(_PANEL_POSITIONS, gap_threshold_bp=REGION_GAP_THRESHOLD)
+    bp_flat = np.array([[r[0], r[1]] for r in regions], dtype=np.int64).ravel()
+    cm_flat = bp_flat / 1_000_000.0
+    regions_cm = [(float(cm_flat[2 * i]), float(cm_flat[2 * i + 1])) for i in range(len(regions))]
+
+    rng = np.random.default_rng(8)
+    n_samples = 200
+
+    for _ in range(_N_REPS_R6):
+        plan = build_region_segment_plan(regions_cm, n_samples=n_samples, rng=rng, min_donors=200)
+        distinct = len({seg.sample_idx for seg in plan})
+        # effective_min is capped by min(min_donors, n_samples, n_regions) = 100
+        assert distinct == N_REGIONS, (
+            f"Expected exactly {N_REGIONS} distinct donors (capped by n_regions), got {distinct}."
+        )

@@ -167,6 +167,26 @@ class PerSampleVCFReader:
                 skipped_missing, total_seen, self.max_missing_rate * 100,
             )
 
+    def iter_positions(self) -> np.ndarray:
+        """
+        Return all variant positions on self.chromosome from the first per-sample VCF.
+
+        No missing-rate filter is applied; this is a lightweight first pass that
+        collects only POS values for region detection.  The full genotype pass
+        (with filtering) happens later in iter_chunks().
+
+        Returns
+        -------
+        np.ndarray, int64, shape (n_variants,)
+            Sorted array of base-pair positions.
+        """
+        reader = VCF(str(self.vcf_paths[0]))
+        positions: list[int] = []
+        for v in self._region_iter(reader, self.vcf_paths[0], self.chromosome):
+            positions.append(v.POS)
+        reader.close()
+        return np.array(positions, dtype=np.int64)
+
     def get_header_vcf(self):
         """Return an open cyvcf2.VCF handle to the first file (for header extraction)."""
         return VCF(str(self.vcf_paths[0]))

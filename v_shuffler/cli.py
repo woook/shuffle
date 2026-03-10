@@ -20,7 +20,11 @@ from tqdm import tqdm
 from v_shuffler import __version__
 from v_shuffler.config import ShufflerConfig
 from v_shuffler.core.mosaic_builder import build_synthetic_genotypes
-from v_shuffler.core.recombination import generate_all_segment_plans
+from v_shuffler.core.recombination import (
+    detect_regions,
+    generate_all_region_plans,
+    generate_all_segment_plans,
+)
 from v_shuffler.io.genetic_map import GeneticMap
 from v_shuffler.io.vcf_reader import PerSampleVCFReader
 from v_shuffler.io.vcf_writer import SyntheticVCFWriter
@@ -117,6 +121,19 @@ def main() -> None:
 )
 @click.option("--max-missing", default=0.05, show_default=True, type=float,
               help="Maximum fraction of missing calls per variant (variants above this are skipped).")
+@click.option(
+    "--no-region-sampling", "region_sampling",
+    is_flag=True, default=True, flag_value=False,
+    help="Disable region-based sampling. Use classic continuous-cM mode (for whole-chromosome data).",
+)
+@click.option(
+    "--region-gap", default=10_000, show_default=True, type=int,
+    help="bp gap between variants that starts a new captured region (region mode only).",
+)
+@click.option(
+    "--min-donors", default=1, show_default=True, type=int,
+    help="Minimum distinct donors per synthetic individual.",
+)
 @click.option("--verbose", is_flag=True, help="Enable debug logging.")
 def shuffle(
     input_spec: str,
@@ -129,6 +146,9 @@ def shuffle(
     threads: int,
     output_mode: str,
     max_missing: float,
+    region_sampling: bool,
+    region_gap: int,
+    min_donors: int,
     verbose: bool,
 ) -> None:
     """
@@ -156,6 +176,9 @@ def shuffle(
         n_threads=threads,
         output_mode=output_mode,
         max_missing_rate=max_missing,
+        region_sampling=region_sampling,
+        region_gap_bp=region_gap,
+        min_donors_per_synthetic=min_donors,
     )
 
     _run_shuffle(config)
@@ -174,20 +197,53 @@ def _run_shuffle(config: ShufflerConfig) -> None:
     )
 
     n_pool_samples = len(config.input_vcfs)
+
+    # Construct reader upfront — needed for the first-pass position scan in region mode.
+    reader = PerSampleVCFReader(
+        vcf_paths=config.input_vcfs,
+        chromosome=config.chromosome,
+        genetic_map=gmap,
+        chunk_size=config.chunk_size_variants,
+        max_missing_rate=config.max_missing_rate,
+    )
+
     logger.info(
         "Generating segment plans for %d synthetic individuals from %d donors ...",
         config.n_output_samples, n_pool_samples,
     )
 
-    segment_plans = generate_all_segment_plans(
-        n_output_samples=config.n_output_samples,
-        genetic_map=gmap,
-        n_pool_samples=n_pool_samples,
-        rng=rng,
-        lambda_override=config.n_crossovers_lambda,
-    )
+    if config.region_sampling:
+        all_positions = reader.iter_positions()
+        logger.info("First pass: %d variant positions scanned", len(all_positions))
+        regions_bp = detect_regions(all_positions, config.region_gap_bp)
+        logger.info(
+            "Detected %d captured regions (gap threshold %d bp)",
+            len(regions_bp), config.region_gap_bp,
+        )
+        if regions_bp:
+            bp_flat = np.array([[r[0], r[1]] for r in regions_bp], dtype=np.int64).ravel()
+            cm_flat = gmap.bp_to_cm(bp_flat).reshape(-1, 2)
+            regions_cm = [(float(row[0]), float(row[1])) for row in cm_flat]
+        else:
+            regions_cm = []
+        segment_plans = generate_all_region_plans(
+            n_output_samples=config.n_output_samples,
+            regions_cm=regions_cm,
+            n_pool_samples=n_pool_samples,
+            rng=rng,
+            min_donors=config.min_donors_per_synthetic,
+        )
+    else:
+        segment_plans = generate_all_segment_plans(
+            n_output_samples=config.n_output_samples,
+            genetic_map=gmap,
+            n_pool_samples=n_pool_samples,
+            rng=rng,
+            lambda_override=config.n_crossovers_lambda,
+            min_donors=config.min_donors_per_synthetic,
+        )
 
-    avg_segs = sum(len(p) for p in segment_plans) / len(segment_plans)
+    avg_segs = sum(len(p) for p in segment_plans) / max(len(segment_plans), 1)
     logger.info("Average segments per synthetic individual: %.1f", avg_segs)
 
     sample_names = [f"synthetic_{i}" for i in range(config.n_output_samples)]
@@ -200,14 +256,6 @@ def _run_shuffle(config: ShufflerConfig) -> None:
         seed=config.seed,
         chromosome=config.chromosome,
         version=__version__,
-    )
-
-    reader = PerSampleVCFReader(
-        vcf_paths=config.input_vcfs,
-        chromosome=config.chromosome,
-        genetic_map=gmap,
-        chunk_size=config.chunk_size_variants,
-        max_missing_rate=config.max_missing_rate,
     )
 
     logger.info("Streaming variants and building synthetic genotypes ...")

@@ -24,6 +24,11 @@ class ShufflerConfig:
     min_segment_cM: float = 0.5
     n_crossovers_lambda: float | None = None  # None = derived from map length
 
+    # Region sampling (for targeted panels)
+    region_sampling: bool = True          # False → classic continuous-cM mode
+    region_gap_bp: int = 10_000          # bp gap that starts a new region
+    min_donors_per_synthetic: int = 1    # 1 = no constraint
+
     # Processing
     chunk_size_variants: int = 50_000
     n_threads: int = 4
@@ -43,3 +48,7 @@ class ShufflerConfig:
             raise ValueError("n_output_samples must be >= 1")
         if not 0.0 <= self.max_missing_rate <= 1.0:
             raise ValueError("max_missing_rate must be in [0, 1]")
+        if self.region_gap_bp < 1:
+            raise ValueError("region_gap_bp must be >= 1")
+        if self.min_donors_per_synthetic < 1:
+            raise ValueError("min_donors_per_synthetic must be >= 1")

@@ -19,8 +19,29 @@ To run them against production data:
 3.  Run:
       pytest tests/test_empirical_tier3.py -v
 
+Mode-agnostic tests
+-------------------
+B5 (PCA) and B6 (LD decay) are agnostic to whether the synthetic VCF was
+produced in region-sampling mode (default) or continuous mode (--no-region-sampling).
+Both output formats are standard VCF files; the same plink2/bcftools commands
+work for both.
+
+For whole-chromosome data passed via VSHUFFLE_DONOR_VCF, consider using
+--no-region-sampling so that crossover breakpoints are placed at biologically
+realistic positions across the full chromosome rather than at region boundaries.
+For targeted panel data (e.g., exome or gene panels), the default region-sampling
+mode is preferred: each captured region is treated as an independent mixing unit,
+which provides thorough anonymisation even when the effective λ across the
+captured fraction of the chromosome would otherwise be near zero.
+
 Example commands reproduced from the plan
 ------------------------------------------
+# Region mode (default) — for panel data
+  v-shuffler shuffle -i "data/*.vcf.gz" -o /tmp/out -m map.txt -c chr22
+
+# Continuous mode — for whole-chromosome data
+  v-shuffler shuffle -i "data/*.vcf.gz" -o /tmp/out -m map.txt -c chr22 --no-region-sampling
+
 # Merge donor and synth VCFs for joint PCA
   bcftools merge -Oz -o merged_all.vcf.gz merged_donors.vcf.gz synthetic_chr22.vcf.gz
   tabix -p vcf merged_all.vcf.gz

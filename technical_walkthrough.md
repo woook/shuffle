@@ -1,7 +1,7 @@
 # v-shuffler: Technical Walkthrough
 
-*2026-03-10T09:33:21Z by Showboat 0.6.1*
-<!-- showboat-id: 4e7d170a-04e1-48f0-a492-94154f94d5df -->
+*2026-03-10T10:56:05Z by Showboat 0.6.1*
+<!-- showboat-id: 83b10ae5-0d43-4fb1-9464-49fb661e820a -->
 
 ## Overview
 
@@ -25,9 +25,10 @@ v-shuffler anonymises genomic VCF files by shuffling diploid genotypes between i
 ```python3
 
 import os
+SKIP = {'.git', '.claude', '__pycache__', '.pytest_cache', '.hypothesis', 'v_shuffler.egg-info'}
 lines = []
 for root, dirs, files in os.walk('.'):
-    dirs[:] = sorted(d for d in dirs if d not in ('.git', '.claude'))
+    dirs[:] = sorted(d for d in dirs if d not in SKIP)
     level = root.count(os.sep)
     indent = '  ' * level
     lines.append(f'{indent}{os.path.basename(root)}/')
@@ -49,8 +50,12 @@ print('\n'.join(lines))
     __init__.py
     conftest.py
     test_cli.py
+    test_empirical_tier1.py
+    test_empirical_tier2.py
+    test_empirical_tier3.py
     test_genetic_map.py
     test_mosaic_builder.py
+    test_patient_end_to_end.py
     test_recombination.py
     test_vcf_io.py
   v_shuffler/
@@ -465,12 +470,9 @@ Reads the reference (merged input) VCF and all synthetic VCFs once each, compute
 
 For each synthetic sample × each input sample pair, computes the fraction of overlapping variants with identical dosage. If any pair exceeds `_IDENTITY_THRESHOLD = 0.99`, a warning is logged. This catches the degenerate case where a synthetic individual happens to be assigned the same donor for the entire chromosome (possible when the pool is very small or the chromosome is short).
 
-### Limitations of the automated check
+### Beyond automated checks: the empirical test suite
 
-The automated validator catches gross problems. The README recommends additional manual checks:
-- **PCA**: synthetic individuals should fall within the cloud of input individuals.
-- **LD**: compare sliding-window r² between input and output.
-- **IBD scan**: no long IBS runs (> a few cM) between any synthetic and any input individual.
+The `validate` command catches gross problems. For a full quantitative assessment, the repository ships a layered empirical test suite covering recombination model fidelity, privacy/re-identification resistance, and biological plausibility — described in the [Tests](#tests) section below.
 
 ## Error Handling and Recovery
 
@@ -531,7 +533,7 @@ Version: 4.67.3
 | **numpy** | Array operations throughout: dosage matrices, cM interpolation, crossover position sampling, boolean masks for segment assignment. |
 | **click** | CLI framework: argument parsing, help text generation, subcommand routing. |
 | **pysam** | Listed as a dependency (provides htslib bindings); bgzip/tabix are called via `subprocess` rather than pysam directly in the current implementation. |
-| **scipy** | Available for statistical operations; used in validation for correlation computations (numpy's `np.corrcoef` is used directly, scipy available for future extensions). |
+| **scipy** | Statistical operations in the empirical test suite: KS tests, Wilcoxon signed-rank test, chi-squared HWE test, Poisson/uniform CDF comparisons. |
 | **tqdm** | Progress bar over the chunk-streaming loop (`Chunks` progress bar in `_run_shuffle`). |
 
 **External tools required at runtime:**
@@ -540,18 +542,18 @@ Version: 4.67.3
 
 ## Tests
 
-The test suite lives in `tests/` and uses pytest. Run with:
+The test suite lives in `tests/` and uses pytest. It is organised into four layers: unit tests, Tier 1 (recombination model), Tier 2 (privacy and biological plausibility), Tier 3 (PCA and LD, require external tools), and a patient end-to-end integration test.
 
 ```bash
-pip install -r requirements-dev.txt
-pytest -v
+pip install -e ".[dev]"
+pytest -v          # runs unit + Tier 1 + Tier 2; Tier 3 and patient E2E auto-skip
 ```
 
 <details>
-<summary>Full test list (50 tests)</summary>
+<summary>Full test collection (72 tests)</summary>
 
 ```bash
-/tmp/vshuffler-venv/bin/pytest --collect-only -q 2>&1 | grep -E '^tests|^[0-9]' | head -50
+/tmp/vshuffler-venv/bin/pytest --collect-only -q 2>&1 | grep -E '^tests/'
 ```
 
 ```output
@@ -564,6 +566,24 @@ tests/test_cli.py::TestShuffleCommand::test_nonexistent_input_raises
 tests/test_cli.py::TestShuffleCommand::test_output_vcf_is_unphased
 tests/test_cli.py::TestShuffleCommand::test_output_not_identical_to_any_input
 tests/test_cli.py::TestVersion::test_version
+tests/test_empirical_tier1.py::test_r1_mean
+tests/test_empirical_tier1.py::test_r1_dispersion
+tests/test_empirical_tier1.py::test_r1_ks_vs_poisson
+tests/test_empirical_tier1.py::test_r2_cM_uniformity
+tests/test_empirical_tier1.py::test_r2_mean_position
+tests/test_empirical_tier1.py::test_r3_mean_segment_length
+tests/test_empirical_tier2.py::test_p1_max_concordance
+tests/test_empirical_tier2.py::test_p1_99th_percentile_concordance
+tests/test_empirical_tier2.py::test_p1_mean_concordance_vs_baseline
+tests/test_empirical_tier2.py::test_p2_closest_donor_attack
+tests/test_empirical_tier2.py::test_p4_membership_inference
+tests/test_empirical_tier2.py::test_b1_af_global
+tests/test_empirical_tier2.py::test_b1_af_by_maf_bin
+tests/test_empirical_tier2.py::test_b2_heterozygosity
+tests/test_empirical_tier2.py::test_b3_hwe
+tests/test_empirical_tier2.py::test_b4_tstv_identical
+tests/test_empirical_tier3.py::test_b5_pca
+tests/test_empirical_tier3.py::test_b6_ld_decay
 tests/test_genetic_map.py::test_load_shapeit5_format
 tests/test_genetic_map.py::test_load_hapmap_format
 tests/test_genetic_map.py::test_chrom_without_prefix
@@ -583,6 +603,10 @@ tests/test_mosaic_builder.py::test_plan_at_chunk_boundary
 tests/test_mosaic_builder.py::test_build_synthetic_genotypes_shape
 tests/test_mosaic_builder.py::test_build_synthetic_genotypes_correct_donors
 tests/test_mosaic_builder.py::test_build_synthetic_genotypes_mosaic
+tests/test_patient_end_to_end.py::test_shuffle_produced_output
+tests/test_patient_end_to_end.py::test_no_identity_leak
+tests/test_patient_end_to_end.py::test_af_preserved
+tests/test_patient_end_to_end.py::test_variant_count_consistent
 tests/test_recombination.py::test_breakpoints_within_map
 tests/test_recombination.py::test_breakpoints_sorted
 tests/test_recombination.py::test_zero_lambda_gives_empty
@@ -609,12 +633,12 @@ tests/test_vcf_io.py::test_reader_site_mismatch_raises
 
 </details>
 
-### Test modules
+### Unit tests
 
 | Module | What it covers |
 |--------|---------------|
 | `test_genetic_map.py` | SHAPEIT5 and HapMap format loading; chromosome name normalisation; `bp_to_cm` interpolation at exact and intermediate points; clamping at map boundaries; rejection of non-monotonic maps; gzipped files. |
-| `test_recombination.py` | Breakpoint sampling: positions within map range, sorted order, Poisson mean over many draws. Segment plan: full chromosome coverage, contiguity, no zero-width segments, donor switching at breakpoints, single-sample pool, correct index range. Plan determinism with a fixed seed. Uses **hypothesis** for property-based testing. |
+| `test_recombination.py` | Breakpoint sampling: positions within map range, sorted order, Poisson mean over many draws. Segment plan: full chromosome coverage, contiguity, no zero-width segments, donor switching at breakpoints, single-sample pool, correct index range. Plan determinism with a fixed seed. |
 | `test_mosaic_builder.py` | Single-segment plans copy the correct donor; two-segment plans copy two different donors; all-zero pool stays all-zero; `MISSING` sentinel is preserved; chunk-boundary behaviour; output shape and donor correctness for `build_synthetic_genotypes`. |
 | `test_vcf_io.py` | `GenotypePool` dimension validation; reader produces correct shape and dosage values; chunk splitting at `chunk_size` boundary; missing genotype encoding; missing-rate filter drops high-missing variants; site mismatch raises immediately. |
 | `test_cli.py` | End-to-end CLI tests using Click's `CliRunner`: help text, missing required options, full shuffle run, determinism under fixed seed, multi-sample output mode, nonexistent input error, unphased GT output, no synthetic sample identical to any input. |
@@ -624,34 +648,185 @@ tests/test_vcf_io.py::test_reader_site_mismatch_raises
 - **`genetic_map_file` / `genetic_map`** — a 10-point SHAPEIT5 map for chr22 spanning 10 cM written to `tmp_path`.
 - **`five_sample_vcfs`** — 5 per-sample VCFs, 10 variants each, with distinct hand-crafted genotypes. Used by reader and CLI tests.
 
-<details>
-<summary>pytest run output (50 passed)</summary>
+### Empirical test suite — Tier 1: Recombination model fidelity (`test_empirical_tier1.py`)
+
+No external tools or VCF data required. Verifies the Poisson crossover model directly against theoretical predictions using 10,000 Monte Carlo repetitions on a 150 cM synthetic map.
+
+| Test | What it checks | Pass threshold |
+|------|----------------|---------------|
+| `test_r1_mean` | `|empirical mean − λ| / λ` | < 1% |
+| `test_r1_dispersion` | Poisson dispersion (var/mean) | 0.95 – 1.05 |
+| `test_r1_ks_vs_poisson` | Discrete KS statistic vs Poisson(λ) CDF | < 0.02 |
+| `test_r2_cM_uniformity` | KS statistic vs Uniform(0,1) in cM space | < 0.02 |
+| `test_r2_mean_position` | Mean normalised cM position | 0.49 – 0.51 |
+| `test_r3_mean_segment_length` | `|mean length − L/(λ+1)| / expected` | < 2% |
+
+**R2 note:** The test confirms uniformity in *cM* space. Physical positions are deliberately non-uniform (hotspot clustering) — this is correct behaviour captured by the genetic map.
 
 ```bash
-/tmp/vshuffler-venv/bin/pytest -v --tb=short 2>&1 | tail -20
+/tmp/vshuffler-venv/bin/pytest tests/test_empirical_tier1.py -v --tb=short 2>&1 | tail -12
 ```
 
 ```output
-tests/test_recombination.py::test_plan_covers_full_chromosome PASSED     [ 66%]
-tests/test_recombination.py::test_plan_segments_contiguous PASSED        [ 68%]
-tests/test_recombination.py::test_plan_no_zero_width_segments PASSED     [ 70%]
-tests/test_recombination.py::test_plan_donor_switches_at_each_breakpoint PASSED [ 72%]
-tests/test_recombination.py::test_plan_with_no_crossovers PASSED         [ 74%]
-tests/test_recombination.py::test_plan_single_sample_pool PASSED         [ 76%]
-tests/test_recombination.py::test_plan_sample_indices_in_range PASSED    [ 78%]
-tests/test_recombination.py::test_generate_all_plans_count PASSED        [ 80%]
-tests/test_recombination.py::test_generate_all_plans_each_valid PASSED   [ 82%]
-tests/test_recombination.py::test_determinism_with_seed PASSED           [ 84%]
-tests/test_recombination.py::test_plan_always_covers_chromosome PASSED   [ 86%]
-tests/test_vcf_io.py::test_genotype_pool_shape PASSED                    [ 88%]
-tests/test_vcf_io.py::test_genotype_pool_dimension_mismatch_raises PASSED [ 90%]
-tests/test_vcf_io.py::test_reader_basic PASSED                           [ 92%]
-tests/test_vcf_io.py::test_reader_chunk_splitting PASSED                 [ 94%]
-tests/test_vcf_io.py::test_reader_missing_genotype PASSED                [ 96%]
-tests/test_vcf_io.py::test_reader_missing_rate_filter PASSED             [ 98%]
-tests/test_vcf_io.py::test_reader_site_mismatch_raises PASSED            [100%]
+configfile: pyproject.toml
+plugins: hypothesis-6.151.9
+collecting ... collected 6 items
 
-============================== 50 passed in 0.64s ==============================
+tests/test_empirical_tier1.py::test_r1_mean PASSED                       [ 16%]
+tests/test_empirical_tier1.py::test_r1_dispersion PASSED                 [ 33%]
+tests/test_empirical_tier1.py::test_r1_ks_vs_poisson PASSED              [ 50%]
+tests/test_empirical_tier1.py::test_r2_cM_uniformity PASSED              [ 66%]
+tests/test_empirical_tier1.py::test_r2_mean_position PASSED              [ 83%]
+tests/test_empirical_tier1.py::test_r3_mean_segment_length PASSED        [100%]
+
+============================== 6 passed in 1.67s ===============================
+```
+
+### Empirical test suite — Tier 2: Privacy and biological plausibility (`test_empirical_tier2.py`)
+
+Fully in-memory fixture, no external files. Uses 200 donors, 2,000 variants, 100 synthetics, 20 held-out individuals, and `LAMBDA_OVERRIDE = 10.0` (forces many crossovers so max concordance stays well below 0.99 in testing).
+
+#### Privacy tests
+
+| Test | What it checks | Behaviour |
+|------|----------------|-----------|
+| `test_p1_max_concordance` | Max pairwise concordance (synth × donor) < 0.99 | Hard-fail |
+| `test_p1_99th_percentile_concordance` | 99th pct of per-synth max concordance < 0.85 | Hard-fail |
+| `test_p1_mean_concordance_vs_baseline` | Mean synth–donor within 0.01 of donor–donor baseline | Hard-fail |
+| `test_p2_closest_donor_attack` | Concordance-ranking attack success rate | Diagnostic; warns if > 50% |
+| `test_p4_membership_inference` | Wilcoxon p-value (in-pool vs held-out concordance) | Diagnostic; warns if p < 0.05 |
+
+**P2 and P4 are diagnostic:** attack rate is ~89% and membership inference is detectable at the fixture scale. This is a known property of the unphased diploid-mosaic design — see Known Limitations in the README.
+
+#### Biological plausibility tests
+
+| Test | What it checks | Pass threshold |
+|------|----------------|---------------|
+| `test_b1_af_global` | Global AF Pearson r | ≥ 0.99 |
+| `test_b1_af_by_maf_bin` | AF correlation by MAF bin | Informational print only |
+| `test_b2_heterozygosity` | Per-sample het rate: mean diff + Wilcoxon p | `|diff| < 0.005`; p > 0.01 |
+| `test_b3_hwe` | HWE-fail fraction (p < 0.001) synth vs donor | synth ≤ 3× donor |
+| `test_b4_tstv_identical` | ts/tv ratio and variant count | Identical by construction |
+
+```bash
+/tmp/vshuffler-venv/bin/pytest tests/test_empirical_tier2.py -v --tb=short -W ignore::UserWarning 2>&1 | tail -16
+```
+
+```output
+configfile: pyproject.toml
+plugins: hypothesis-6.151.9
+collecting ... collected 10 items
+
+tests/test_empirical_tier2.py::test_p1_max_concordance PASSED            [ 10%]
+tests/test_empirical_tier2.py::test_p1_99th_percentile_concordance PASSED [ 20%]
+tests/test_empirical_tier2.py::test_p1_mean_concordance_vs_baseline PASSED [ 30%]
+tests/test_empirical_tier2.py::test_p2_closest_donor_attack PASSED       [ 40%]
+tests/test_empirical_tier2.py::test_p4_membership_inference PASSED       [ 50%]
+tests/test_empirical_tier2.py::test_b1_af_global PASSED                  [ 60%]
+tests/test_empirical_tier2.py::test_b1_af_by_maf_bin PASSED              [ 70%]
+tests/test_empirical_tier2.py::test_b2_heterozygosity PASSED             [ 80%]
+tests/test_empirical_tier2.py::test_b3_hwe PASSED                        [ 90%]
+tests/test_empirical_tier2.py::test_b4_tstv_identical PASSED             [100%]
+
+============================== 10 passed in 1.43s ==============================
+```
+
+### Empirical test suite — Tier 3: PCA and LD (`test_empirical_tier3.py`)
+
+Requires `plink2` and `bcftools` on `PATH` and pre-generated VCF files. Auto-skipped when tools or files are absent.
+
+```bash
+export VSHUFFLE_DONOR_VCF=/path/to/merged_donors.vcf.gz
+export VSHUFFLE_SYNTH_VCF=/path/to/synthetic_chr22.vcf.gz
+pytest tests/test_empirical_tier3.py -v
+```
+
+| Test | What it checks | Pass threshold |
+|------|----------------|---------------|
+| `test_b5_pca` | Fraction of synthetics inside 99% Mahalanobis donor cloud (PC1–PC2); no outliers > 3 SD | > 0.95; 0 outliers |
+| `test_b6_ld_decay` | Short-range r² diff at < 10 kb; LD curve Pearson r; KS on full r² distribution | < 0.02; > 0.99; < 0.05 |
+
+**B6 note:** Long-range LD is expected to be elevated in synthetic output (LD is copied intact within segments). Only short-range LD and the overall decay curve shape are asserted.
+
+```bash
+/tmp/vshuffler-venv/bin/pytest tests/test_empirical_tier3.py -v 2>&1 | tail -8
+```
+
+```output
+configfile: pyproject.toml
+plugins: hypothesis-6.151.9
+collecting ... collected 2 items
+
+tests/test_empirical_tier3.py::test_b5_pca SKIPPED (bcftools not fou...) [ 50%]
+tests/test_empirical_tier3.py::test_b6_ld_decay SKIPPED (plink2 not ...) [100%]
+
+============================== 2 skipped in 0.16s ==============================
+```
+
+### Patient end-to-end integration test (`test_patient_end_to_end.py`)
+
+Runs the full shuffle pipeline on real patient VCFs via `CliRunner` and checks the four most critical output properties. Intended to be run manually before releasing shuffled data to verify that the actual patient data is handled correctly.
+
+```bash
+VSHUFFLE_PATIENT_VCFS="@/data/patients.txt" \
+VSHUFFLE_GENETIC_MAP="/data/chr22.b38.gmap.gz" \
+VSHUFFLE_CHROMOSOME="chr22" \
+pytest tests/test_patient_end_to_end.py -v -s
+```
+
+**Required env vars:** `VSHUFFLE_PATIENT_VCFS`, `VSHUFFLE_GENETIC_MAP`, `VSHUFFLE_CHROMOSOME`.
+**Optional:** `VSHUFFLE_SEED` (default 42), `VSHUFFLE_N_SYNTH` (default `min(n_donors, 50)`).
+
+The module-scoped fixture runs the shuffler once, then loads donor and synthetic dosage matrices with `PerSampleVCFReader`, aligns positions with `np.searchsorted`, and subsamples up to 10,000 variants for MISSING-aware vectorised concordance computation.
+
+| Test | What it checks |
+|------|----------------|
+| `test_shuffle_produced_output` | Correct number of `.vcf.gz` files written |
+| `test_no_identity_leak` | Max pairwise concordance (synth × donor) < 0.99 |
+| `test_af_preserved` | AF Pearson r ≥ 0.99 |
+| `test_variant_count_consistent` | All synth variant positions present in donor pool |
+
+```bash
+/tmp/vshuffler-venv/bin/pytest tests/test_patient_end_to_end.py -v 2>&1 | tail -10
+```
+
+```output
+configfile: pyproject.toml
+plugins: hypothesis-6.151.9
+collecting ... collected 4 items
+
+tests/test_patient_end_to_end.py::test_shuffle_produced_output SKIPPED   [ 25%]
+tests/test_patient_end_to_end.py::test_no_identity_leak SKIPPED (Env...) [ 50%]
+tests/test_patient_end_to_end.py::test_af_preserved SKIPPED (Environ...) [ 75%]
+tests/test_patient_end_to_end.py::test_variant_count_consistent SKIPPED  [100%]
+
+============================== 4 skipped in 0.18s ==============================
+```
+
+### Full test run
+
+<details>
+<summary>pytest output (66 passed, 6 skipped)</summary>
+
+```bash
+/tmp/vshuffler-venv/bin/pytest --tb=short -q 2>&1 | tail -12
+```
+
+```output
+.........................ss...................ssss...................... [100%]
+=============================== warnings summary ===============================
+tests/test_empirical_tier2.py::test_p2_closest_donor_attack
+  /tmp/vshuffler-venv/lib/python3.12/site-packages/_pytest/python.py:166: UserWarning: [P2 ALARMING] Attack success rate 0.890 > 50% absolute. Primary donors are easily identifiable from synthetic output. This is a known limitation of the unphased-mosaic design.
+    result = testfunction(**testargs)
+
+tests/test_empirical_tier2.py::test_p4_membership_inference
+  /tmp/vshuffler-venv/lib/python3.12/site-packages/_pytest/python.py:166: UserWarning: [P4 ALARMING] Membership inference signal is strong: mean delta=0.1329, Wilcoxon p=3.89e-18. Synthetics are measurably more similar to their donors than to held-out individuals. This is a known limitation of the approach.
+    result = testfunction(**testargs)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+66 passed, 6 skipped, 2 warnings in 2.61s
 ```
 
 </details>
+
+The two warnings from P2 and P4 are expected: they document the known re-identification limitations of the unphased diploid-mosaic design (see README Known Limitations). The tests pass because they are defined as diagnostic reporters, not hard-fail assertions.

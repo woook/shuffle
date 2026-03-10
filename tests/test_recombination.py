@@ -361,7 +361,7 @@ class TestRegionSampling:
         plans = generate_all_region_plans(
             n_output_samples=3, regions_cm=regions_cm, n_pool_samples=n_donors, rng=make_rng(31)
         )
-        synth = build_synthetic_genotypes(pool, plans)
+        synth, _ = build_synthetic_genotypes(pool, plans)
         assert synth.shape == (n_variants, 3)
         assert not np.any(synth == MISSING)
 

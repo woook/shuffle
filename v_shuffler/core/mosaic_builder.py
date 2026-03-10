@@ -57,7 +57,7 @@ def apply_segment_plan(
 def build_synthetic_genotypes(
     pool: GenotypePool,
     segment_plans: list[list[Segment]],
-) -> np.ndarray:
+) -> tuple[np.ndarray, dict[str, np.ndarray]]:
     """
     Apply all segment plans to one pool chunk, producing the full synthetic
     genotype matrix for that chunk.
@@ -71,11 +71,30 @@ def build_synthetic_genotypes(
 
     Returns
     -------
-    np.ndarray, shape (pool.n_variants, n_output_samples), dtype uint8
+    dosages : np.ndarray, shape (pool.n_variants, n_output_samples), dtype uint8
         Synthetic dosage matrix.  Column i corresponds to synthetic individual i.
+    format_fields : dict[str, np.ndarray]
+        For each field name in ``pool.format_fields``, a float32 array of shape
+        ``(pool.n_variants, n_output_samples)`` containing the value copied from
+        whichever donor was assigned to each variant's segment.  NaN where the
+        source donor had a missing value.  Empty dict when no FORMAT fields were
+        requested.
     """
     n_output = len(segment_plans)
-    result = np.empty((pool.n_variants, n_output), dtype=np.uint8)
+    dosage_result = np.empty((pool.n_variants, n_output), dtype=np.uint8)
+
+    # Initialise format-field output arrays (NaN = not yet assigned)
+    field_results: dict[str, np.ndarray] = {
+        name: np.full((pool.n_variants, n_output), np.nan, dtype=np.float32)
+        for name in pool.format_fields
+    }
+
     for s_idx, plan in enumerate(segment_plans):
-        result[:, s_idx] = apply_segment_plan(pool, plan)
-    return result
+        dosage_result[:, s_idx] = apply_segment_plan(pool, plan)
+        # Copy format-field values for each segment in this plan
+        for seg in plan:
+            mask = (pool.cm_pos >= seg.cm_start) & (pool.cm_pos <= seg.cm_end)
+            for name, src in pool.format_fields.items():
+                field_results[name][mask, s_idx] = src[mask, seg.sample_idx]
+
+    return dosage_result, field_results

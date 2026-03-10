@@ -201,6 +201,114 @@ def test_reader_missing_rate_filter(tmp_path: Path, gmap: GeneticMap) -> None:
 
 
 # ---------------------------------------------------------------------------
+# carry_format_fields
+# ---------------------------------------------------------------------------
+
+
+def test_carry_format_fields_reads_af(tmp_path: Path) -> None:
+    """carry_format_fields=['AF'] populates pool.format_fields with a float matrix."""
+    import textwrap
+    from v_shuffler.io.vcf_reader import PerSampleVCFReader
+
+    content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        ##FORMAT=<ID=AF,Number=A,Type=Float,Description="Allele fraction">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tsample
+        chr22\t100\t.\tT\tA\t.\tPASS\t.\tGT:AF\t0/1:0.42
+        chr22\t200\t.\tC\tG\t.\tPASS\t.\tGT:AF\t1/1:0.91
+        chr22\t300\t.\tG\tC\t.\tPASS\t.\tGT:AF\t0/1:.
+    """)
+    vcf = tmp_path / "sample.vcf"
+    vcf.write_text(content)
+
+    map_path = tmp_path / "map.txt"
+    map_path.write_text("pos chr cM\n1 chr22 0.0\n1000 chr22 1.0\n")
+    gmap = GeneticMap(map_path, "chr22")
+
+    reader = PerSampleVCFReader([vcf], "chr22", gmap, carry_format_fields=("AF",))
+    chunks = list(reader.iter_chunks())
+    assert len(chunks) == 1
+    pool = chunks[0]
+
+    assert "AF" in pool.format_fields
+    af = pool.format_fields["AF"]
+    assert af.shape == (3, 1)
+    assert abs(float(af[0, 0]) - 0.42) < 1e-4
+    assert abs(float(af[1, 0]) - 0.91) < 1e-4
+    import math
+    assert math.isnan(float(af[2, 0]))  # "." → NaN
+
+
+def test_carry_format_fields_propagates_to_output(tmp_path: Path) -> None:
+    """AF carried through build_synthetic_genotypes appears in the output matrix."""
+    import textwrap
+    import numpy as np
+    from v_shuffler.core.genotype_pool import GenotypePool, VariantInfo, MISSING
+    from v_shuffler.core.mosaic_builder import build_synthetic_genotypes
+    from v_shuffler.core.recombination import Segment
+
+    n_variants = 4
+    n_donors = 2
+    dosages = np.array([[1, 2], [0, 1], [2, 0], [1, 1]], dtype=np.uint8)
+    af_vals = np.array([[0.45, 0.90], [0.0, 0.50], [0.88, 0.0], [0.30, 0.70]],
+                       dtype=np.float32)
+    cm_pos = np.array([0.0, 1.0, 2.0, 3.0])
+    variant_info = [
+        VariantInfo("chr22", i * 100, "A", ["G"], ".", None, [], float(i))
+        for i in range(n_variants)
+    ]
+    pool = GenotypePool(
+        dosages=dosages,
+        positions=np.array([100, 200, 300, 400], dtype=np.int64),
+        cm_pos=cm_pos,
+        variant_info=variant_info,
+        format_fields={"AF": af_vals},
+    )
+
+    # One synthetic: first half from donor 0, second half from donor 1
+    plan = [
+        Segment(cm_start=0.0, cm_end=1.5, sample_idx=0),
+        Segment(cm_start=1.5, cm_end=3.0, sample_idx=1),
+    ]
+    synth_dosages, synth_fields = build_synthetic_genotypes(pool, [plan])
+
+    assert "AF" in synth_fields
+    af_out = synth_fields["AF"][:, 0]
+
+    # Variants 0-1 (cm 0.0, 1.0) → donor 0
+    assert abs(float(af_out[0]) - 0.45) < 1e-4
+    assert abs(float(af_out[1]) - 0.0) < 1e-4
+    # Variants 2-3 (cm 2.0, 3.0) → donor 1
+    assert abs(float(af_out[2]) - 0.0) < 1e-4
+    assert abs(float(af_out[3]) - 0.70) < 1e-4
+
+
+def test_no_format_fields_returns_empty_dict(tmp_path: Path) -> None:
+    """Without carry_format_fields, build_synthetic_genotypes returns an empty dict."""
+    import numpy as np
+    from v_shuffler.core.genotype_pool import GenotypePool, VariantInfo
+    from v_shuffler.core.mosaic_builder import build_synthetic_genotypes
+    from v_shuffler.core.recombination import Segment
+
+    dosages = np.array([[1], [0]], dtype=np.uint8)
+    pool = GenotypePool(
+        dosages=dosages,
+        positions=np.array([100, 200], dtype=np.int64),
+        cm_pos=np.array([0.0, 1.0]),
+        variant_info=[
+            VariantInfo("chr22", 100, "A", ["G"], ".", None, [], 0.0),
+            VariantInfo("chr22", 200, "C", ["T"], ".", None, [], 1.0),
+        ],
+    )
+    plan = [Segment(cm_start=0.0, cm_end=1.0, sample_idx=0)]
+    dosage_mat, fields = build_synthetic_genotypes(pool, [plan])
+    assert fields == {}
+    assert dosage_mat.shape == (2, 1)
+
+
+# ---------------------------------------------------------------------------
 # resolve_chromosome_name
 # ---------------------------------------------------------------------------
 

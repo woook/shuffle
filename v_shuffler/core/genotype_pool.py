@@ -16,7 +16,7 @@ from dosage.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -53,12 +53,18 @@ class GenotypePool:
         Genetic positions in cM.
     variant_info : list[VariantInfo]
         Per-variant metadata (same length as n_variants).
+    format_fields : dict[str, np.ndarray]
+        Optional additional FORMAT fields to carry through to synthetic output.
+        Each entry maps a field name (e.g. ``"AF"``) to a float32 array of
+        shape ``(n_variants, n_samples)``.  NaN encodes a missing value.
+        Empty by default.
     """
 
     dosages: np.ndarray
     positions: np.ndarray
     cm_pos: np.ndarray
     variant_info: list[VariantInfo]
+    format_fields: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         n = len(self.variant_info)

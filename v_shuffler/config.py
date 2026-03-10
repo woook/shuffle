@@ -23,6 +23,9 @@ class ShufflerConfig:
     # Donor sex map (optional; used to filter donors for chrX/chrY)
     sex_file: Path | None = None  # two-column donor-sex file (path F/M)
 
+    # FORMAT fields to carry through from source donors to synthetic output
+    carry_format_fields: tuple[str, ...] = ()  # e.g. ("AF", "DP")
+
     # Recombination parameters
     min_segment_cM: float = 0.5
     n_crossovers_lambda: float | None = None  # None = derived from map length

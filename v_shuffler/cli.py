@@ -143,6 +143,15 @@ def main() -> None:
         "chrY from male donors only. Autosomes use the full donor pool."
     ),
 )
+@click.option(
+    "--carry-format-fields", "carry_format_fields", default="", show_default=False,
+    help=(
+        "Comma-separated FORMAT field names to copy from source donors into the "
+        "synthetic output alongside GT (e.g. 'AF' or 'AF,DP'). "
+        "Useful for somatic data where retaining variant allele fraction is desirable. "
+        "Default: GT only."
+    ),
+)
 @click.option("--verbose", is_flag=True, help="Enable debug logging.")
 def shuffle(
     input_spec: str,
@@ -159,6 +168,7 @@ def shuffle(
     region_gap: int,
     min_donors: int,
     sex_file: str | None,
+    carry_format_fields: str,
     verbose: bool,
 ) -> None:
     """
@@ -175,6 +185,8 @@ def shuffle(
     out_dir = Path(output_dir)
     n_output = n_samples if n_samples is not None else len(input_paths)
 
+    parsed_fields = tuple(f.strip() for f in carry_format_fields.split(",") if f.strip())
+
     config = ShufflerConfig(
         input_vcfs=input_paths,
         output_dir=out_dir,
@@ -190,6 +202,7 @@ def shuffle(
         region_gap_bp=region_gap,
         min_donors_per_synthetic=min_donors,
         sex_file=Path(sex_file) if sex_file is not None else None,
+        carry_format_fields=parsed_fields,
     )
 
     _run_shuffle(config)
@@ -260,7 +273,13 @@ def _run_shuffle(config: ShufflerConfig) -> None:
         genetic_map=gmap,
         chunk_size=config.chunk_size_variants,
         max_missing_rate=config.max_missing_rate,
+        carry_format_fields=config.carry_format_fields,
     )
+    if config.carry_format_fields:
+        logger.info(
+            "Carrying FORMAT fields through to synthetic output: %s",
+            ", ".join(config.carry_format_fields),
+        )
 
     logger.info(
         "Generating segment plans for %d synthetic individuals from %d donors ...",
@@ -317,8 +336,8 @@ def _run_shuffle(config: ShufflerConfig) -> None:
     total_variants = 0
 
     for pool in tqdm(reader.iter_chunks(), desc="Chunks", unit="chunk"):
-        synthetic = build_synthetic_genotypes(pool, segment_plans)
-        writer.write_chunk(pool, synthetic)
+        synthetic_dosages, synthetic_fields = build_synthetic_genotypes(pool, segment_plans)
+        writer.write_chunk(pool, synthetic_dosages, synthetic_fields or None)
         total_variants += pool.n_variants
 
     logger.info("Processed %d variants total", total_variants)

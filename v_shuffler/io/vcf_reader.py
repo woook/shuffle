@@ -103,6 +103,25 @@ def _gt_to_dosage(gt: list) -> int:
     return int(a1 > 0) + int(a2 > 0)
 
 
+def _get_format_float(variant, field_name: str) -> float:
+    """
+    Extract a single float value from a FORMAT field of one cyvcf2 variant.
+
+    Returns NaN for missing (``"."``) or absent fields.  For multi-value fields
+    (e.g. Mutect2 ``AF`` with ``Number=A``) the first element is returned.
+    """
+    try:
+        data = variant.format(field_name)
+        if data is None:
+            return float("nan")
+        val = data[0]                      # first (only) sample in a per-sample VCF
+        if hasattr(val, "__len__"):
+            val = val[0]                   # first element for Number=A / Number=R fields
+        return float(val)
+    except (TypeError, ValueError, IndexError):
+        return float("nan")
+
+
 
 class PerSampleVCFReader:
     """
@@ -123,6 +142,11 @@ class PerSampleVCFReader:
         Number of variants per yielded chunk.
     max_missing_rate : float
         Variants with a higher missing rate are skipped.
+    carry_format_fields : tuple[str, ...]
+        Additional FORMAT field names to read and carry through to the
+        ``GenotypePool.format_fields`` dict (e.g. ``("AF", "DP")``).
+        Each field is stored as a float32 array; NaN encodes missing values.
+        Default: empty (GT only).
     """
 
     def __init__(
@@ -132,6 +156,7 @@ class PerSampleVCFReader:
         genetic_map: GeneticMap,
         chunk_size: int = 50_000,
         max_missing_rate: float = 0.05,
+        carry_format_fields: tuple[str, ...] = (),
     ) -> None:
         if not vcf_paths:
             raise ValueError("vcf_paths must not be empty")
@@ -140,6 +165,7 @@ class PerSampleVCFReader:
         self.genetic_map = genetic_map
         self.chunk_size = chunk_size
         self.max_missing_rate = max_missing_rate
+        self.carry_format_fields = carry_format_fields
         self.n_samples = len(vcf_paths)
 
     # ------------------------------------------------------------------
@@ -162,6 +188,10 @@ class PerSampleVCFReader:
         chunk_positions: list[int] = []
         chunk_cm: list[float] = []
         chunk_info: list[VariantInfo] = []
+        # One list-of-arrays per extra FORMAT field: field → [array_per_variant]
+        chunk_fmt: dict[str, list[np.ndarray]] = {
+            f: [] for f in self.carry_format_fields
+        }
 
         skipped_missing = 0
         total_seen = 0
@@ -201,13 +231,26 @@ class PerSampleVCFReader:
                 cm_pos=cm,
             ))
 
+            # Collect extra FORMAT fields
+            for field_name in self.carry_format_fields:
+                vals = np.array(
+                    [_get_format_float(v, field_name) for v in variants],
+                    dtype=np.float32,
+                )
+                chunk_fmt[field_name].append(vals)
+
             if len(chunk_dosages) == self.chunk_size:
-                yield self._make_pool(chunk_dosages, chunk_positions, chunk_cm, chunk_info)
+                yield self._make_pool(
+                    chunk_dosages, chunk_positions, chunk_cm, chunk_info, chunk_fmt
+                )
                 chunk_dosages, chunk_positions, chunk_cm, chunk_info = [], [], [], []
+                chunk_fmt = {f: [] for f in self.carry_format_fields}
 
         # Yield the final partial chunk
         if chunk_dosages:
-            yield self._make_pool(chunk_dosages, chunk_positions, chunk_cm, chunk_info)
+            yield self._make_pool(
+                chunk_dosages, chunk_positions, chunk_cm, chunk_info, chunk_fmt
+            )
 
         for r in readers:
             r.close()
@@ -252,13 +295,20 @@ class PerSampleVCFReader:
         positions: list[int],
         cm_list: list[float],
         variant_info: list[VariantInfo],
+        fmt_data: dict[str, list[np.ndarray]] | None = None,
     ) -> GenotypePool:
         dosage_matrix = np.stack(dosages_list, axis=0)  # (n_variants, n_samples)
+        format_fields: dict[str, np.ndarray] = {}
+        if fmt_data:
+            for field_name, arrays in fmt_data.items():
+                if arrays:
+                    format_fields[field_name] = np.stack(arrays, axis=0)  # (n_variants, n_samples)
         return GenotypePool(
             dosages=dosage_matrix,
             positions=np.array(positions, dtype=np.int64),
             cm_pos=np.array(cm_list, dtype=np.float64),
             variant_info=variant_info,
+            format_fields=format_fields,
         )
 
     @staticmethod

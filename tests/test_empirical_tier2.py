@@ -205,7 +205,7 @@ def fix(tmp_path_factory: pytest.TempPathFactory) -> EmpiricalFixture:
         cm_pos=cm_pos,
         variant_info=variant_info,
     )
-    synth_matrix = build_synthetic_genotypes(pool, segment_plans)  # (V, S)
+    synth_matrix, _ = build_synthetic_genotypes(pool, segment_plans)  # (V, S)
 
     # --- Synth allele frequencies ---
     valid = synth_matrix != MISSING
@@ -682,7 +682,7 @@ def test_p1_region_vs_continuous_concordance(fix: EmpiricalFixture) -> None:
         n_pool_samples=N_DONORS,
         rng=rng_r,
     )
-    synth_region = build_synthetic_genotypes(pool_sub, plans_region)
+    synth_region, _ = build_synthetic_genotypes(pool_sub, plans_region)
 
     # Continuous mode with realistic λ = 0.5
     rng_c = np.random.default_rng(302)
@@ -693,7 +693,7 @@ def test_p1_region_vs_continuous_concordance(fix: EmpiricalFixture) -> None:
         rng=rng_c,
         lambda_override=0.5,
     )
-    synth_cont = build_synthetic_genotypes(pool_sub, plans_cont)
+    synth_cont, _ = build_synthetic_genotypes(pool_sub, plans_cont)
 
     def _max_conc(synth: np.ndarray, donor: np.ndarray) -> float:
         conc = (synth[:, :, np.newaxis] == donor[:, np.newaxis, :]).mean(axis=0)

@@ -117,7 +117,7 @@ an independent mixing unit:
 
 With 100 captured regions and 200 donors, each synthetic draws ~63 distinct
 donors — thorough mixing regardless of chromosome length. The primary-donor
-attack success rate drops from ~89% (continuous mode, realistic λ ≈ 0.5) to
+attack success rate (see below) drops from ~89% (continuous mode, realistic λ ≈ 0.5) to
 ~5% (region mode, 100 regions).
 
 ### Minimum-donors constraint

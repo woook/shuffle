@@ -1,0 +1,266 @@
+#!/bin/bash
+# run_shuffle_cohort.sh — shuffle a cohort of per-sample VCFs across multiple chromosomes.
+#
+# Usage:
+#   run_shuffle_cohort.sh [options]
+#
+# Options:
+#   -i DIR      Directory of DP-filtered per-sample VCFs (required)
+#   -o DIR      Output directory for final synthetic VCFs (required)
+#   -m DIR      Directory of per-chromosome genetic maps, e.g. chr1.b38.gmap.gz (required)
+#   -s FILE     Sex file: two columns (path sex), used to restrict chrX to female donors (optional)
+#   -c CHROMS   Space-separated chromosome list, e.g. "1 2 3 22 X" (default: 1-22 X)
+#   -n INT      Number of parallel chromosomes to process (default: nproc / 2, min 1)
+#   -e PATH     Path to v-shuffler venv (default: /tmp/vshuffler-venv)
+#   -k          Keep per-chromosome intermediate files after combining (default: delete)
+#   -r          Resume: skip chromosomes that already have output
+#
+# Example:
+#   bash run_shuffle_cohort.sh \
+#       -i /tmp/vshuffle_dp20 \
+#       -o ~/Downloads/v-s/w \
+#       -m /tmp/shuffle_maps \
+#       -s /tmp/vshuffle_sex.txt \
+#       -n 4
+
+set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Defaults
+# ---------------------------------------------------------------------------
+DP20_DIR=""
+OUTPUT_BASE=""
+MAP_DIR=""
+SEX_FILE_ORIG=""
+CHROMS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X"
+VENV="/tmp/vshuffler-venv"
+KEEP_INTERMEDIATES=0
+RESUME=0
+
+# Default parallelism: half the CPUs (leaves headroom for bcftools I/O workers)
+DEFAULT_PARALLEL=$(( $(nproc 2>/dev/null || echo 2) / 2 ))
+[ "$DEFAULT_PARALLEL" -lt 1 ] && DEFAULT_PARALLEL=1
+MAX_PARALLEL="$DEFAULT_PARALLEL"
+
+# ---------------------------------------------------------------------------
+# Parse arguments
+# ---------------------------------------------------------------------------
+while getopts "i:o:m:s:c:n:e:kr" opt; do
+    case "$opt" in
+        i) DP20_DIR="$OPTARG" ;;
+        o) OUTPUT_BASE="$OPTARG" ;;
+        m) MAP_DIR="$OPTARG" ;;
+        s) SEX_FILE_ORIG="$OPTARG" ;;
+        c) CHROMS="$OPTARG" ;;
+        n) MAX_PARALLEL="$OPTARG" ;;
+        e) VENV="$OPTARG" ;;
+        k) KEEP_INTERMEDIATES=1 ;;
+        r) RESUME=1 ;;
+        *) echo "Unknown option: $opt"; exit 1 ;;
+    esac
+done
+
+if [ -z "$DP20_DIR" ] || [ -z "$OUTPUT_BASE" ] || [ -z "$MAP_DIR" ]; then
+    echo "Error: -i, -o, and -m are required."
+    echo "Run with no arguments to see usage."
+    exit 1
+fi
+
+PER_CHROM_DIR="$OUTPUT_BASE/per_chrom"
+LOG="$OUTPUT_BASE/shuffle.log"
+WORK_BASE="/tmp/shuffle_work"
+
+mkdir -p "$OUTPUT_BASE" "$PER_CHROM_DIR" "$WORK_BASE"
+
+echo "$(date '+%H:%M:%S') ============================================" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S') shuffle cohort pipeline" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   input:       $DP20_DIR" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   output:      $OUTPUT_BASE" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   maps:        $MAP_DIR" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   sex file:    ${SEX_FILE_ORIG:-none}" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   chromosomes: $CHROMS" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   parallel:    $MAX_PARALLEL" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S') ============================================" | tee -a "$LOG"
+
+# ---------------------------------------------------------------------------
+# Build donor file list once
+# ---------------------------------------------------------------------------
+DONOR_LIST="$WORK_BASE/dp20_list.txt"
+python3 - <<PYEOF
+import pathlib
+files = sorted(pathlib.Path("$DP20_DIR").glob("*.vcf.gz"))
+pathlib.Path("$DONOR_LIST").write_text("\n".join(str(f) for f in files) + "\n")
+print(f"$(date '+%H:%M:%S') Found {len(files)} donor VCFs")
+PYEOF
+
+# ---------------------------------------------------------------------------
+# Per-chromosome function (runs in a background subshell)
+# ---------------------------------------------------------------------------
+process_chrom() {
+    local CHROM="$1"
+    local WORK_DIR="$WORK_BASE/${CHROM}"
+    local SPLIT_DIR="$WORK_DIR/split"
+    local CHROM_OUT="$PER_CHROM_DIR/${CHROM}"
+    local MAP_FILE="$MAP_DIR/chr${CHROM}.b38.gmap.gz"
+    local CHROM_LOG="$OUTPUT_BASE/chr${CHROM}.log"
+
+    # Clear old log for this chromosome
+    > "$CHROM_LOG"
+
+    echo "$(date '+%H:%M:%S') [chr${CHROM}] starting" | tee -a "$LOG"
+    mkdir -p "$SPLIT_DIR" "$CHROM_OUT"
+
+    # --- Merge with reference-fill ---
+    echo "$(date '+%H:%M:%S') [chr${CHROM}] merging" | tee -a "$CHROM_LOG"
+    bcftools merge --missing-to-ref \
+        --file-list "$DONOR_LIST" \
+        -r "$CHROM" \
+        -Oz -o "$WORK_DIR/merged.vcf.gz" >> "$CHROM_LOG" 2>&1
+    tabix -p vcf "$WORK_DIR/merged.vcf.gz"
+
+    # --- Normalise ---
+    echo "$(date '+%H:%M:%S') [chr${CHROM}] normalising" | tee -a "$CHROM_LOG"
+    bcftools norm -m -any --keep-sum AD \
+        "$WORK_DIR/merged.vcf.gz" \
+        -Oz -o "$WORK_DIR/merged_norm.vcf.gz" >> "$CHROM_LOG" 2>&1
+    tabix -p vcf "$WORK_DIR/merged_norm.vcf.gz"
+    rm "$WORK_DIR/merged.vcf.gz" "$WORK_DIR/merged.vcf.gz.tbi"
+
+    # --- Split to per-sample ---
+    echo "$(date '+%H:%M:%S') [chr${CHROM}] splitting" | tee -a "$CHROM_LOG"
+    bcftools +split -Oz "$WORK_DIR/merged_norm.vcf.gz" -o "$SPLIT_DIR/" >> "$CHROM_LOG" 2>&1
+    for f in "$SPLIT_DIR"/*.vcf.gz; do tabix -p vcf "$f" & done
+    wait
+    rm "$WORK_DIR/merged_norm.vcf.gz" "$WORK_DIR/merged_norm.vcf.gz.tbi"
+
+    # Build split_list.txt and a chromosome-local sex file from the split paths.
+    # Using Python avoids shell glob failures and ensures the sex file basenames
+    # match the split VCF names (bcftools +split names files by SM tag, not by
+    # the original filename).
+    python3 - <<PYEOF >> "$CHROM_LOG" 2>&1
+import pathlib, re
+split_dir = pathlib.Path("$SPLIT_DIR")
+files = sorted(split_dir.glob("*.vcf.gz"))
+
+# split_list.txt
+pathlib.Path("$WORK_DIR/split_list.txt").write_text(
+    "\n".join(str(f) for f in files) + "\n"
+)
+
+# sex file: extract F/M from the sample name (same -9526-F- / -9526-M- pattern)
+sex_lines = []
+for f in files:
+    m = re.search(r"-9526-([FM])[-_]", f.name)
+    if m:
+        sex_lines.append(f"{f}  {m.group(1)}")
+pathlib.Path("$WORK_DIR/sex_file.txt").write_text(
+    "\n".join(sex_lines) + "\n"
+)
+print(f"chr$CHROM: {len(files)} split VCFs, {len(sex_lines)} sex-mapped")
+PYEOF
+
+    # --- Shuffle ---
+    echo "$(date '+%H:%M:%S') [chr${CHROM}] shuffling" | tee -a "$LOG" "$CHROM_LOG"
+    "$VENV/bin/v-shuffler" shuffle \
+        --input "@$WORK_DIR/split_list.txt" \
+        --output-dir "$CHROM_OUT" \
+        --genetic-map "$MAP_FILE" \
+        --chromosome "$CHROM" \
+        --seed 42 \
+        --sex-file "$WORK_DIR/sex_file.txt" \
+        >> "$CHROM_LOG" 2>&1
+
+    rm -rf "$WORK_DIR"
+    echo "$(date '+%H:%M:%S') [chr${CHROM}] done" | tee -a "$LOG"
+}
+
+# ---------------------------------------------------------------------------
+# Launch chromosomes with concurrency limit
+# ---------------------------------------------------------------------------
+declare -A CHROM_PIDS
+
+for CHROM in $CHROMS; do
+    # Resume: skip chromosomes that already have output
+    if [ "$RESUME" -eq 1 ]; then
+        n=$(find "$PER_CHROM_DIR/$CHROM" -name "synthetic_*.vcf.gz" 2>/dev/null | wc -l || echo 0)
+        if [ "$n" -gt 0 ]; then
+            echo "$(date '+%H:%M:%S') [chr${CHROM}] already done, skipping" | tee -a "$LOG"
+            continue
+        fi
+    fi
+
+    # Wait if at the concurrency limit
+    while [ "$(jobs -rp | wc -l)" -ge "$MAX_PARALLEL" ]; do
+        sleep 2
+    done
+
+    process_chrom "$CHROM" &
+    CHROM_PIDS["$CHROM"]=$!
+done
+
+# Wait for all remaining jobs and collect exit codes
+FAILED_CHROMS=()
+for CHROM in "${!CHROM_PIDS[@]}"; do
+    if ! wait "${CHROM_PIDS[$CHROM]}"; then
+        FAILED_CHROMS+=("$CHROM")
+        echo "$(date '+%H:%M:%S') [chr${CHROM}] FAILED — see $OUTPUT_BASE/chr${CHROM}.log" | tee -a "$LOG"
+    fi
+done
+
+if [ "${#FAILED_CHROMS[@]}" -gt 0 ]; then
+    echo "$(date '+%H:%M:%S') Pipeline failed for: ${FAILED_CHROMS[*]}" | tee -a "$LOG"
+    exit 1
+fi
+
+echo "$(date '+%H:%M:%S') All chromosomes complete. Combining..." | tee -a "$LOG"
+
+# ---------------------------------------------------------------------------
+# Combine per-chromosome VCFs into one file per synthetic individual
+# ---------------------------------------------------------------------------
+N_SYNTH=$(find "$PER_CHROM_DIR/1" -name "synthetic_*.vcf.gz" | wc -l)
+echo "$(date '+%H:%M:%S') Combining $N_SYNTH synthetics across $(echo $CHROMS | wc -w) chromosomes..." | tee -a "$LOG"
+
+# Run combines in parallel too
+combine_synthetic() {
+    local i="$1"
+    python3 - <<PYEOF
+import pathlib, subprocess, sys
+
+chroms = "$CHROMS".split()
+per_chrom = pathlib.Path("$PER_CHROM_DIR")
+files = []
+for c in chroms:
+    f = per_chrom / c / f"synthetic_$i.vcf.gz"
+    if f.exists():
+        files.append(str(f))
+
+if not files:
+    print(f"WARNING: no files found for synthetic_$i", file=sys.stderr)
+    sys.exit(1)
+
+out = pathlib.Path("$OUTPUT_BASE") / f"synthetic_$i.vcf.gz"
+subprocess.run(["bcftools", "concat"] + files + ["-Oz", "-o", str(out)], check=True)
+subprocess.run(["tabix", "-p", "vcf", str(out)], check=True)
+PYEOF
+}
+
+for i in $(seq 0 $((N_SYNTH - 1))); do
+    while [ "$(jobs -rp | wc -l)" -ge "$MAX_PARALLEL" ]; do
+        sleep 1
+    done
+    combine_synthetic "$i" &
+done
+wait
+
+# ---------------------------------------------------------------------------
+# Clean up and report
+# ---------------------------------------------------------------------------
+if [ "$KEEP_INTERMEDIATES" -eq 0 ]; then
+    echo "$(date '+%H:%M:%S') Cleaning up per-chromosome intermediates..." | tee -a "$LOG"
+    rm -rf "$PER_CHROM_DIR"
+fi
+
+N_OUT=$(find "$OUTPUT_BASE" -maxdepth 1 -name "synthetic_*.vcf.gz" | wc -l)
+echo "$(date '+%H:%M:%S') ============================================" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S') Complete: $N_OUT synthetic VCFs in $OUTPUT_BASE" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S') ============================================" | tee -a "$LOG"

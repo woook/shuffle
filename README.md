@@ -111,9 +111,9 @@ an independent mixing unit:
    ensures that the first `min_donors` regions each get a distinct donor;
    the remaining regions are sampled freely subject to the adjacency
    constraint (consecutive regions never share the same donor).
-4. **Mosaic assembly** — identical to continuous mode; `apply_segment_plan`
-   works unchanged because region plans use the same `Segment(cm_start,
-   cm_end, sample_idx)` structure.
+4. **Mosaic assembly** — variants are streamed in chunks and each synthetic
+   individual's dosage is copied from whichever donor the segment plan assigns
+   to that variant's cM position.
 
 With 100 captured regions and 200 donors, each synthetic draws ~63 distinct
 donors — thorough mixing regardless of chromosome length. The primary-donor

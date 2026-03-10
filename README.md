@@ -1606,3 +1606,9 @@ For a deep-dive into the codebase — including annotated data-flow diagrams,
 key design decisions, and worked examples — see the technical walkthrough:
 
 [technical_walkthrough.md](technical_walkthrough.md)
+
+For end-to-end testing results against a real 138-sample clinical NGS panel
+cohort (chr22, GATK HaplotypeCaller, preprocessing pipeline, anonymisation
+and AF metrics) see:
+
+[testing_results.md](testing_results.md)

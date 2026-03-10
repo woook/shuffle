@@ -116,7 +116,9 @@ def _get_format_float(variant, field_name: str) -> float:
             return float("nan")
         val = data[0]                      # first (only) sample in a per-sample VCF
         if hasattr(val, "__len__"):
-            val = val[0]                   # first element for Number=A / Number=R fields
+            val = val[-1]                  # last element: for Number=R (e.g. AD=[ref,alt])
+                                           # this gives the alt-allele value; for Number=A
+                                           # (e.g. AF) the array has length 1 so val[-1]==val[0]
         return float(val)
     except (TypeError, ValueError, IndexError):
         return float("nan")

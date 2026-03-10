@@ -5,11 +5,13 @@
 #   run_shuffle_cohort.sh [options]
 #
 # Options:
-#   -i DIR      Directory of DP-filtered per-sample VCFs (required)
+#   -i DIR      Directory of per-sample VCFs (required)
 #   -o DIR      Output directory for final synthetic VCFs (required)
 #   -m DIR      Directory of per-chromosome genetic maps, e.g. chr1.b38.gmap.gz (required)
 #   -s FILE     Sex file: two columns (path sex), used to restrict chrX to female donors (optional)
 #   -c CHROMS   Space-separated chromosome list, e.g. "1 2 3 22 X" (default: 1-22 X)
+#   -d INT      Minimum FORMAT/DP to retain a variant (default: 20)
+#   -f FIELDS   Comma-separated FORMAT fields to carry into synthetic output, e.g. "AF,DP,AD"
 #   -n INT      Number of parallel chromosomes to process (default: nproc / 2, min 1)
 #   -e PATH     Path to v-shuffler venv (default: /tmp/vshuffler-venv)
 #   -k          Keep per-chromosome intermediate files after combining (default: delete)
@@ -17,10 +19,12 @@
 #
 # Example:
 #   bash run_shuffle_cohort.sh \
-#       -i /tmp/vshuffle_dp20 \
-#       -o ~/Downloads/v-s/w \
+#       -i /home/wook/Downloads/v-s/h \
+#       -o /home/wook/Downloads/v-s/h/s \
 #       -m /tmp/shuffle_maps \
-#       -s /tmp/vshuffle_sex.txt \
+#       -s /tmp/vshuffle_sex_h.txt \
+#       -d 100 \
+#       -f "AF,DP,AD" \
 #       -n 4
 
 set -euo pipefail
@@ -28,11 +32,13 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 # Defaults
 # ---------------------------------------------------------------------------
-DP20_DIR=""
+INPUT_DIR=""
 OUTPUT_BASE=""
 MAP_DIR=""
 SEX_FILE_ORIG=""
 CHROMS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X"
+MIN_DP=20
+FORMAT_FIELDS=""
 VENV="/tmp/vshuffler-venv"
 KEEP_INTERMEDIATES=0
 RESUME=0
@@ -45,13 +51,15 @@ MAX_PARALLEL="$DEFAULT_PARALLEL"
 # ---------------------------------------------------------------------------
 # Parse arguments
 # ---------------------------------------------------------------------------
-while getopts "i:o:m:s:c:n:e:kr" opt; do
+while getopts "i:o:m:s:c:d:f:n:e:kr" opt; do
     case "$opt" in
-        i) DP20_DIR="$OPTARG" ;;
+        i) INPUT_DIR="$OPTARG" ;;
         o) OUTPUT_BASE="$OPTARG" ;;
         m) MAP_DIR="$OPTARG" ;;
         s) SEX_FILE_ORIG="$OPTARG" ;;
         c) CHROMS="$OPTARG" ;;
+        d) MIN_DP="$OPTARG" ;;
+        f) FORMAT_FIELDS="$OPTARG" ;;
         n) MAX_PARALLEL="$OPTARG" ;;
         e) VENV="$OPTARG" ;;
         k) KEEP_INTERMEDIATES=1 ;;
@@ -60,7 +68,7 @@ while getopts "i:o:m:s:c:n:e:kr" opt; do
     esac
 done
 
-if [ -z "$DP20_DIR" ] || [ -z "$OUTPUT_BASE" ] || [ -z "$MAP_DIR" ]; then
+if [ -z "$INPUT_DIR" ] || [ -z "$OUTPUT_BASE" ] || [ -z "$MAP_DIR" ]; then
     echo "Error: -i, -o, and -m are required."
     echo "Run with no arguments to see usage."
     exit 1
@@ -69,28 +77,43 @@ fi
 PER_CHROM_DIR="$OUTPUT_BASE/per_chrom"
 LOG="$OUTPUT_BASE/shuffle.log"
 WORK_BASE="/tmp/shuffle_work"
+FILTERED_DIR="$WORK_BASE/filtered"
 
-mkdir -p "$OUTPUT_BASE" "$PER_CHROM_DIR" "$WORK_BASE"
+mkdir -p "$OUTPUT_BASE" "$PER_CHROM_DIR" "$WORK_BASE" "$FILTERED_DIR"
 
 echo "$(date '+%H:%M:%S') ============================================" | tee -a "$LOG"
 echo "$(date '+%H:%M:%S') shuffle cohort pipeline" | tee -a "$LOG"
-echo "$(date '+%H:%M:%S')   input:       $DP20_DIR" | tee -a "$LOG"
-echo "$(date '+%H:%M:%S')   output:      $OUTPUT_BASE" | tee -a "$LOG"
-echo "$(date '+%H:%M:%S')   maps:        $MAP_DIR" | tee -a "$LOG"
-echo "$(date '+%H:%M:%S')   sex file:    ${SEX_FILE_ORIG:-none}" | tee -a "$LOG"
-echo "$(date '+%H:%M:%S')   chromosomes: $CHROMS" | tee -a "$LOG"
-echo "$(date '+%H:%M:%S')   parallel:    $MAX_PARALLEL" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   input:         $INPUT_DIR" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   output:        $OUTPUT_BASE" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   maps:          $MAP_DIR" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   sex file:      ${SEX_FILE_ORIG:-none}" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   chromosomes:   $CHROMS" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   min DP:        $MIN_DP" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   format fields: ${FORMAT_FIELDS:-GT only}" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   parallel:      $MAX_PARALLEL" | tee -a "$LOG"
 echo "$(date '+%H:%M:%S') ============================================" | tee -a "$LOG"
 
 # ---------------------------------------------------------------------------
-# Build donor file list once
+# Step 1: Apply DP filter and index
 # ---------------------------------------------------------------------------
-DONOR_LIST="$WORK_BASE/dp20_list.txt"
+DONOR_LIST="$WORK_BASE/donor_list.txt"
+
+echo "$(date '+%H:%M:%S') Applying DP>=$MIN_DP filter to input VCFs..." | tee -a "$LOG"
+for f in "$INPUT_DIR"/*.vcf.gz; do
+    base=$(basename "$f")
+    out="$FILTERED_DIR/$base"
+    if [ ! -f "$out" ]; then
+        bcftools view -i "FORMAT/DP>=$MIN_DP" "$f" -Oz -o "$out" \
+            && tabix -p vcf "$out" &
+    fi
+done
+wait
+
 python3 - <<PYEOF
 import pathlib
-files = sorted(pathlib.Path("$DP20_DIR").glob("*.vcf.gz"))
+files = sorted(pathlib.Path("$FILTERED_DIR").glob("*.vcf.gz"))
 pathlib.Path("$DONOR_LIST").write_text("\n".join(str(f) for f in files) + "\n")
-print(f"$(date '+%H:%M:%S') Found {len(files)} donor VCFs")
+print(f"$(date '+%H:%M:%S') Filtered donor VCFs ready: {len(files)}")
 PYEOF
 
 # ---------------------------------------------------------------------------
@@ -161,14 +184,16 @@ PYEOF
 
     # --- Shuffle ---
     echo "$(date '+%H:%M:%S') [chr${CHROM}] shuffling" | tee -a "$LOG" "$CHROM_LOG"
-    "$VENV/bin/v-shuffler" shuffle \
-        --input "@$WORK_DIR/split_list.txt" \
-        --output-dir "$CHROM_OUT" \
-        --genetic-map "$MAP_FILE" \
-        --chromosome "$CHROM" \
-        --seed 42 \
-        --sex-file "$WORK_DIR/sex_file.txt" \
-        >> "$CHROM_LOG" 2>&1
+    SHUFFLE_ARGS=(
+        --input "@$WORK_DIR/split_list.txt"
+        --output-dir "$CHROM_OUT"
+        --genetic-map "$MAP_FILE"
+        --chromosome "$CHROM"
+        --seed 42
+        --sex-file "$WORK_DIR/sex_file.txt"
+    )
+    [ -n "$FORMAT_FIELDS" ] && SHUFFLE_ARGS+=(--carry-format-fields "$FORMAT_FIELDS")
+    "$VENV/bin/v-shuffler" shuffle "${SHUFFLE_ARGS[@]}" >> "$CHROM_LOG" 2>&1
 
     rm -rf "$WORK_DIR"
     echo "$(date '+%H:%M:%S') [chr${CHROM}] done" | tee -a "$LOG"

@@ -236,7 +236,7 @@ continuous mode.
 
 ### Shuffle a whole-chromosome cohort
 
-Use `--no-region-sampling` for whole-chromosome WGS or WES data where there
+Use `--no-region-sampling` for whole-chromosome or WGS data where there
 are enough variants per chromosome for the Poisson crossover model to produce
 meaningful mixing.
 

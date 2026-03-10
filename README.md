@@ -23,6 +23,7 @@ segments; no original individual's genome appears in the output intact.
    - [Guarantee mixing with --min-donors](#guarantee-mixing-with---min-donors)
    - [Shuffle sex chromosomes](#shuffle-sex-chromosomes)
    - [Process multiple chromosomes](#process-multiple-chromosomes)
+   - [Per-sample WES/panel cohort pipeline](#per-sample-wespanel-cohort-pipeline)
    - [Validate output](#validate-output)
    - [Programmatic use](#programmatic-use)
 5. [CLI reference](#cli-reference)
@@ -411,6 +412,97 @@ v-shuffler shuffle \
     --output-mode multi_sample
 # produces shuffled/chr22/synthetic_chr22.vcf.gz
 ```
+
+For per-sample panel or WES data that requires preprocessing before shuffling,
+use the cohort pipeline script described in the next section.
+
+### Per-sample WES/panel cohort pipeline
+
+`scripts/run_shuffle_cohort.sh` is a self-contained pipeline script for
+cohorts of per-sample variant-only VCFs (GATK HaplotypeCaller or similar).
+It handles the full preprocessing chain for each chromosome — depth filtering,
+reference-fill merge, normalisation, per-sample split — then shuffles and
+combines everything into one VCF per synthetic individual.
+
+**Chromosomes are processed in parallel** (default: `nproc/2`, configurable
+with `-n`), typically cutting runtime to one quarter of the sequential time.
+
+#### Prerequisites
+
+Input VCFs must already have had low-coverage variants removed. Filter to
+`FORMAT/DP >= 20` (or your chosen threshold) before running:
+
+```bash
+mkdir -p normalised_dp20/
+for f in per_sample/*.vcf.gz; do
+    base=$(basename "$f")
+    bcftools view -i 'FORMAT/DP>=20' "$f" \
+        -Oz -o "normalised_dp20/${base}"
+    tabix -p vcf "normalised_dp20/${base}"
+done
+```
+
+You also need one genetic map file per chromosome in a single directory.
+Download SHAPEIT5 GRCh38 maps:
+
+```bash
+mkdir -p maps/
+for chr in $(seq 1 22) X; do
+    curl -fsSL \
+        "https://github.com/odelaneau/shapeit5/raw/main/resources/maps/b38/chr${chr}.b38.gmap.gz" \
+        -o "maps/chr${chr}.b38.gmap.gz"
+done
+```
+
+#### Options
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-i DIR` | required | Directory of depth-filtered per-sample VCFs |
+| `-o DIR` | required | Output directory for final synthetic VCFs |
+| `-m DIR` | required | Directory of per-chromosome genetic maps (`chr1.b38.gmap.gz`, …) |
+| `-s FILE` | none | Sex file (path sex); chrX is automatically restricted to female donors |
+| `-c CHROMS` | `1 2 … 22 X` | Space-separated list of chromosomes to process |
+| `-n INT` | `nproc/2` | Number of chromosomes to process in parallel |
+| `-e PATH` | `/tmp/vshuffler-venv` | Path to v-shuffler virtual environment |
+| `-r` | off | Resume: skip chromosomes that already have output |
+| `-k` | off | Keep per-chromosome intermediate files after combining |
+
+#### Example
+
+```bash
+bash scripts/run_shuffle_cohort.sh \
+    -i normalised_dp20/ \
+    -o synthetic_output/ \
+    -m maps/ \
+    -s sex.txt \
+    -n 4
+```
+
+Output: one `synthetic_N.vcf.gz` per individual in `synthetic_output/`,
+each containing all 23 chromosomes (1–22 + X), bgzipped and tabix-indexed.
+
+Progress is logged to `synthetic_output/shuffle.log`. Each chromosome also
+writes its own `synthetic_output/chrN.log` for debugging parallel runs.
+
+#### What the script does internally
+
+For each chromosome (in parallel):
+
+1. `bcftools merge --missing-to-ref` — builds a concordant site set across
+   all donors; absent variant = homozygous reference (valid for same-panel
+   cohorts after depth filtering).
+2. `bcftools norm -m -any --keep-sum AD` — splits multiallelics introduced
+   by the merge.
+3. `bcftools +split` — returns to one file per donor with a consistent site
+   set. The sex file is regenerated from these split paths so that basename
+   matching works correctly regardless of the original VCF naming convention.
+4. `v-shuffler shuffle` — generates synthetic individuals; chrX uses female
+   donors only when a sex file is provided.
+
+After all chromosomes complete, `bcftools concat` combines the per-chromosome
+synthetic VCFs into one genome-wide VCF per individual (also parallelised).
+Per-chromosome intermediates are deleted unless `-k` is passed.
 
 ### Validate output
 

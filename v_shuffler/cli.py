@@ -27,7 +27,7 @@ from v_shuffler.core.recombination import (
 )
 from v_shuffler.io.genetic_map import GeneticMap
 from v_shuffler.io.sex_map import filter_vcfs_by_sex, load_sex_map, sex_filter_for_chromosome
-from v_shuffler.io.vcf_reader import PerSampleVCFReader
+from v_shuffler.io.vcf_reader import PerSampleVCFReader, resolve_chromosome_name
 from v_shuffler.io.vcf_writer import SyntheticVCFWriter
 
 logger = logging.getLogger("v_shuffler")
@@ -200,8 +200,19 @@ def _run_shuffle(config: ShufflerConfig) -> None:
 
     rng = np.random.default_rng(config.seed)
 
-    logger.info("Loading genetic map for %s ...", config.chromosome)
-    gmap = GeneticMap(config.genetic_map, config.chromosome)
+    # Resolve the chromosome name against the VCF's actual naming convention.
+    # Some pipelines write "chr22"; others write "22".  We detect which form
+    # the first input VCF uses and normalise once so every downstream component
+    # (genetic map, reader, writer) sees a consistent name.
+    chrom = resolve_chromosome_name(config.input_vcfs[0], config.chromosome)
+    if chrom != config.chromosome:
+        logger.info(
+            "Chromosome name normalised from %r to %r to match VCF convention.",
+            config.chromosome, chrom,
+        )
+
+    logger.info("Loading genetic map for %s ...", chrom)
+    gmap = GeneticMap(config.genetic_map, chrom)
     logger.info(
         "Map loaded: %.2f – %.2f cM (total %.2f cM)",
         gmap.start_cm, gmap.end_cm, gmap.total_length_cm,
@@ -209,7 +220,7 @@ def _run_shuffle(config: ShufflerConfig) -> None:
 
     # Determine the effective donor pool.  For sex chromosomes this may be a
     # subset of config.input_vcfs filtered to the appropriate sex.
-    required_sex = sex_filter_for_chromosome(config.chromosome)
+    required_sex = sex_filter_for_chromosome(chrom)
     if config.sex_file is not None:
         sex_map = load_sex_map(config.sex_file, config.input_vcfs)
         if required_sex is not None:
@@ -218,12 +229,12 @@ def _run_shuffle(config: ShufflerConfig) -> None:
             if not pool_vcfs:
                 raise click.ClickException(
                     f"No {sex_label} donors found in {config.sex_file} for "
-                    f"chromosome {config.chromosome}. "
+                    f"chromosome {chrom}. "
                     "Check that --sex-file contains the correct paths and sex labels."
                 )
             logger.info(
                 "Sex chromosome %s: restricting donor pool to %d %s donors (%d total).",
-                config.chromosome, len(pool_vcfs), sex_label, len(config.input_vcfs),
+                chrom, len(pool_vcfs), sex_label, len(config.input_vcfs),
             )
         else:
             pool_vcfs = config.input_vcfs
@@ -233,9 +244,9 @@ def _run_shuffle(config: ShufflerConfig) -> None:
                 "Processing sex chromosome %s without --sex-file. "
                 "All %d donors will be used regardless of sex. "
                 "Pass --sex-file to restrict %s to %s donors only.",
-                config.chromosome,
+                chrom,
                 len(config.input_vcfs),
-                config.chromosome,
+                chrom,
                 "female" if required_sex == "F" else "male",
             )
         pool_vcfs = config.input_vcfs
@@ -245,7 +256,7 @@ def _run_shuffle(config: ShufflerConfig) -> None:
     # Construct reader upfront — needed for the first-pass position scan in region mode.
     reader = PerSampleVCFReader(
         vcf_paths=pool_vcfs,
-        chromosome=config.chromosome,
+        chromosome=chrom,
         genetic_map=gmap,
         chunk_size=config.chunk_size_variants,
         max_missing_rate=config.max_missing_rate,
@@ -298,7 +309,7 @@ def _run_shuffle(config: ShufflerConfig) -> None:
         template_vcf_path=pool_vcfs[0],
         output_mode=config.output_mode,
         seed=config.seed,
-        chromosome=config.chromosome,
+        chromosome=chrom,
         version=__version__,
     )
 

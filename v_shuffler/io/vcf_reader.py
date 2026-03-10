@@ -35,6 +35,57 @@ from v_shuffler.io.genetic_map import GeneticMap
 logger = logging.getLogger(__name__)
 
 
+def resolve_chromosome_name(vcf_path: Path, chromosome: str) -> str:
+    """
+    Return the form of *chromosome* that the VCF file actually uses.
+
+    Some pipelines write ``chr22``; others write ``22``.  This function
+    opens the first VCF in the cohort (header + index only — no records
+    are read), inspects the sequence names reported by cyvcf2, and returns
+    the matching form.
+
+    Resolution order (first match wins):
+      1. *chromosome* as supplied by the user.
+      2. With ``chr`` prefix added (e.g. ``22`` → ``chr22``).
+      3. With ``chr`` prefix stripped (e.g. ``chr22`` → ``22``).
+
+    Falls back to *chromosome* unchanged when the VCF has neither
+    ``##contig`` header lines nor a tabix/CSI index (e.g. small plain-text
+    test files without contig headers).  In that case ``_region_iter``'s
+    plain-VCF fallback, which already checks all three forms, handles the
+    iteration correctly.
+
+    Parameters
+    ----------
+    vcf_path :
+        Path to any one of the donor VCF files.  Only the header / index
+        is inspected; no genotype records are read.
+    chromosome :
+        The chromosome name supplied by the user (e.g. from ``--chromosome``).
+
+    Returns
+    -------
+    str
+        The chromosome name as it appears in *vcf_path*, or *chromosome*
+        unchanged if the VCF provides no sequence-name information.
+    """
+    reader = VCF(str(vcf_path))
+    seqnames = set(reader.seqnames)
+    reader.close()
+
+    if not seqnames:
+        return chromosome  # no contig info available; keep as-is
+
+    bare = chromosome.lstrip("chr")
+    prefixed = "chr" + bare
+
+    for candidate in (chromosome, prefixed, bare):
+        if candidate in seqnames:
+            return candidate
+
+    return chromosome  # fallback: let downstream code handle it
+
+
 def _gt_to_dosage(gt: list) -> int:
     """
     Convert a cyvcf2 genotype list [allele1, allele2, phased] to a dosage.

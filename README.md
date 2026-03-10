@@ -14,6 +14,7 @@ segments; no original individual's genome appears in the output intact.
    - [Region-sampling mode (targeted panels)](#region-sampling-mode-targeted-panels)
    - [Minimum-donors constraint](#minimum-donors-constraint)
    - [Sex chromosome donor filtering](#sex-chromosome-donor-filtering)
+   - [Chromosome name normalisation](#chromosome-name-normalisation)
 2. [Installation](#installation)
 3. [Genetic map](#genetic-map)
 4. [How-to guides](#how-to-guides)
@@ -155,6 +156,29 @@ sample004.vcf.gz                 2        # PLINK convention (1=male, 2=female)
 Lines starting with `#` and blank lines are ignored. An optional header row
 (`path sex`) is skipped automatically. Accepted sex labels (case-insensitive):
 `F` / `female` / `2` for female; `M` / `male` / `1` for male.
+
+### Chromosome name normalisation
+
+Different bioinformatics pipelines name chromosomes differently: some write
+`chr22`, others write `22`. v-shuffler accepts either form for `--chromosome`
+and automatically translates to whichever convention the input VCFs actually
+use.
+
+At the very start of a run, before the genetic map is loaded or any VCF
+records are read, `resolve_chromosome_name()` opens the first input VCF and
+inspects its sequence names (from `##contig` headers or the tabix index).
+It returns the matching form — adding or stripping the `chr` prefix as
+needed. If the VCF provides no sequence-name information (plain unindexed
+files without `##contig` headers) the supplied name is used unchanged, and
+the reader's existing fallback filter handles both forms automatically.
+
+The resolved name flows through consistently to the genetic map lookup, tabix
+queries, the writer's provenance header, and the output filename in
+`multi_sample` mode. A log message is emitted whenever a translation occurs:
+
+```
+INFO  Chromosome name normalised from 'chr22' to '22' to match VCF convention.
+```
 
 ---
 
@@ -495,7 +519,7 @@ individuals.
 | `--input / -i` | required | Glob pattern or `@filelist.txt` of per-sample VCFs |
 | `--output-dir / -o` | required | Output directory (created if absent) |
 | `--genetic-map / -m` | required | SHAPEIT5 or HapMap format map file |
-| `--chromosome / -c` | required | Chromosome to process, e.g. `chr22` |
+| `--chromosome / -c` | required | Chromosome to process. Both `chr22` and `22` forms are accepted; the tool normalises to match the VCF automatically. |
 | `--n-samples / -n` | = n inputs | Number of synthetic individuals to produce |
 | `--seed / -s` | None | Random seed; omit for a non-reproducible run |
 | `--output-mode` | `per_sample` | `per_sample` (one VCF per synthetic) or `multi_sample` |
@@ -561,6 +585,10 @@ described in [Test suite](#test-suite).
   needed.
 - VCFs should be **bgzipped and tabix-indexed** (`.vcf.gz` + `.vcf.gz.tbi`).
   Plain `.vcf` files work but are slower (no random-access region query).
+- **Chromosome naming** — `chr`-prefixed (`chr22`) and bare (`22`) contig
+  names are both accepted. The tool detects which convention the VCFs use and
+  normalises automatically; no manual alignment between the `--chromosome`
+  flag and the VCF header is required.
 - **Minimum meaningful cohort:** ≥ 100 donors. Below this, one donor
   dominates each synthetic individual and re-identification risk is high.
 
@@ -644,7 +672,26 @@ receive `end_cm`.
 
 ---
 
-### `io/vcf_reader.py` — `PerSampleVCFReader`
+### `io/vcf_reader.py` — `PerSampleVCFReader` and `resolve_chromosome_name`
+
+#### `resolve_chromosome_name`
+
+```python
+from v_shuffler.io.vcf_reader import resolve_chromosome_name
+
+chrom = resolve_chromosome_name(Path("donor0.vcf.gz"), "chr22")
+# → "chr22" if the VCF uses chr-prefixed names
+# → "22"    if the VCF uses bare names
+# → "chr22" unchanged if the VCF has no ##contig headers and no index
+```
+
+Inspects the sequence names reported by the first VCF's `##contig` headers
+or tabix index — whichever is available. Tries the supplied name, then the
+prefixed form, then the bare form; returns the first match. Falls back to the
+supplied name if no sequence information is present. Called automatically at
+the start of `_run_shuffle`; importable for programmatic pipelines.
+
+#### `PerSampleVCFReader`
 
 Streams one VCF file per donor simultaneously, yielding `GenotypePool`
 chunks of shape `(chunk_size, n_donors)`.
@@ -966,9 +1013,11 @@ match or any listed path does not exist. This function is importable and
 reused in the test suite.
 
 **`_run_shuffle(config: ShufflerConfig) → None`** — the main pipeline
-function. Constructs the reader first (needed for the `iter_positions()` call
-in region mode), generates plans, then streams variant chunks through to the
-writer. Importable for programmatic use.
+function. First resolves the chromosome name against the VCF convention via
+`resolve_chromosome_name`, then optionally sex-filters the donor pool, then
+constructs the reader (needed for the `iter_positions()` call in region mode),
+generates plans, and streams variant chunks through to the writer. Importable
+for programmatic use.
 
 ---
 
@@ -991,7 +1040,7 @@ pytest tests/test_empirical_tier2.py -v
 pytest tests/test_empirical_tier2.py -v -s
 ```
 
-**Current status:** 136 tests pass, 6 skip (2 require plink2/bcftools; 4
+**Current status:** 145 tests pass, 6 skip (2 require plink2/bcftools; 4
 require patient VCF env vars). Run time ≈ 18 s.
 
 ---
@@ -1003,8 +1052,8 @@ require patient VCF env vars). Run time ≈ 18 s.
 | `tests/test_recombination.py` | `simulate_crossover_breakpoints`, `build_segment_plan`, `generate_all_segment_plans`, `detect_regions`, `build_region_segment_plan`, `generate_all_region_plans` — edge cases, determinism, adjacency constraint, min_donors |
 | `tests/test_genetic_map.py` | `GeneticMap` — SHAPEIT5 and HapMap format parsing, `bp_to_cm` interpolation, boundary clamping, error handling |
 | `tests/test_mosaic_builder.py` | `apply_segment_plan`, `build_synthetic_genotypes` — correct segment assignment, MISSING fill, chunk boundaries |
-| `tests/test_vcf_io.py` | `PerSampleVCFReader`, `SyntheticVCFWriter` — round-trip VCF read/write, missing-rate filter, site consistency check |
-| `tests/test_cli.py` | Full CLI via `click.testing.CliRunner` — shuffle run, determinism, multi-sample mode, unphased output, error handling |
+| `tests/test_vcf_io.py` | `PerSampleVCFReader`, `SyntheticVCFWriter`, `resolve_chromosome_name` — round-trip VCF read/write, missing-rate filter, site consistency check, chr-prefix normalisation (four unit tests + two integration tests for cross-convention reading) |
+| `tests/test_cli.py` | Full CLI via `click.testing.CliRunner` — shuffle run, determinism, multi-sample mode, unphased output, error handling; `TestChromosomeNormalisation` (bare VCF + chr-prefix flag, bare flag, normalisation log) |
 | `tests/test_sex_filter.py` | `parse_sex_label`, `sex_filter_for_chromosome`, `load_sex_map`, `filter_vcfs_by_sex` — all label variants, path/basename matching, header/comment handling, error cases; CLI integration for autosome passthrough, chrX female-only filtering, no-sex-file warning, empty-pool error |
 
 ---
@@ -1268,7 +1317,8 @@ G. The specific allele identity is not tracked.
 |-------------|-------------|--------|
 | P2 attack rate > 50% | Too few mixing units; one donor dominates | Switch to region mode; increase `--min-donors`; use larger pool |
 | P4 membership inference p < 0.001 | Strong in-pool concordance signal | Same as P2; also increase variant panel density |
-| B1 AF r < 0.99 | Donor pool imbalance or wrong chromosome filter | Verify `--chromosome` matches VCF contig names |
+| B1 AF r < 0.99 | Donor pool imbalance or population stratification | Verify all donors are from the same population; check `--chromosome` is the right chromosome |
+| Output VCFs are empty (0 variants) | Chromosome name could not be resolved | Run with `--verbose` to see whether normalisation fired; check VCF `##contig` headers |
 | B2 het rate shift | Systematic genotype encoding error | Check that dosage encoding is 0/1/2, not 0/1/1 |
 | B3 HWE excess > 3× | Many variants near segment boundaries | Check R3 segment length distribution; consider longer segments |
 | B5 synthetics outside PCA cloud | AF bias or population stratification in donor pool | Check all donors come from the same population |

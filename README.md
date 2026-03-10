@@ -649,6 +649,7 @@ individuals.
 | `--region-gap` | 10 000 | bp gap between variants that starts a new captured region |
 | `--min-donors` | 1 | Minimum distinct donors per synthetic (1 = unconstrained) |
 | `--sex-file` | None | Two-column donor-sex file; restricts chrX to female donors and chrY to male donors |
+| `--carry-format-fields` | `` | Comma-separated FORMAT fields to copy from source donors into synthetic output alongside GT (e.g. `AF` or `AF,DP`). Useful for somatic data. |
 | `--threads` | 4 | Reserved for future parallelism; not yet used |
 | `--verbose` | False | Enable DEBUG-level logging |
 
@@ -902,6 +903,8 @@ config = ShufflerConfig(
     min_donors_per_synthetic=1,     # 1 = no constraint
     # Sex chromosome filtering
     sex_file=None,                  # Path to donor-sex file; None = use all donors
+    # FORMAT field carry-through (e.g. somatic VAF)
+    carry_format_fields=("AF",),    # empty tuple = GT only (default)
     # Processing
     max_missing_rate=0.05,
     chunk_size_variants=50_000,
@@ -923,6 +926,7 @@ config = ShufflerConfig(
 | `region_gap_bp` | `int` | `10_000` | bp gap that separates two regions |
 | `min_donors_per_synthetic` | `int` | `1` | Minimum distinct donors per synthetic |
 | `sex_file` | `Path \| None` | `None` | Donor-sex file; restricts chrX/chrY to the appropriate sex |
+| `carry_format_fields` | `tuple[str, ...]` | `()` | FORMAT fields to copy alongside GT (e.g. `("AF",)`). Empty = GT only. |
 | `max_missing_rate` | `float` | `0.05` | Per-variant missing-call filter |
 | `chunk_size_variants` | `int` | `50_000` | Streaming chunk size |
 | `n_threads` | `int` | `4` | Reserved for future use |
@@ -987,6 +991,7 @@ reader = PerSampleVCFReader(
     genetic_map=gmap,
     chunk_size=50_000,
     max_missing_rate=0.05,
+    carry_format_fields=("AF",),   # optional; copies AF field into pool.format_fields
 )
 
 # Lightweight first pass: collect positions for region detection
@@ -994,12 +999,19 @@ positions = reader.iter_positions()  # np.ndarray, int64
 
 # Main pass: stream genotype chunks
 for pool in reader.iter_chunks():
-    # pool.dosages  : np.ndarray (V, N), uint8  — 0/1/2 or MISSING=255
-    # pool.positions: np.ndarray (V,),   int64  — 1-based bp positions
-    # pool.cm_pos   : np.ndarray (V,),   float64
-    # pool.variant_info: list[VariantInfo], length V
+    # pool.dosages      : np.ndarray (V, N), uint8   — 0/1/2 or MISSING=255
+    # pool.positions    : np.ndarray (V,),   int64   — 1-based bp positions
+    # pool.cm_pos       : np.ndarray (V,),   float64
+    # pool.variant_info : list[VariantInfo], length V
+    # pool.format_fields: dict[str, np.ndarray (V, N) float32] — e.g. {"AF": ...}
     process(pool)
 ```
+
+**`carry_format_fields`** — optional tuple of FORMAT field names (e.g.
+`("AF",)`) to read from each donor VCF and store in `pool.format_fields`.
+Each field is a float32 array of shape `(n_variants, n_donors)`; NaN encodes
+missing values. Multi-value fields (e.g. Mutect2 `AF` with `Number=A`) use
+the first element. When empty (the default), `pool.format_fields` is `{}`.
 
 **`iter_positions()`** opens only the first VCF file, applies no
 missing-rate filter, and returns a plain position array. It is used by the
@@ -1079,14 +1091,19 @@ writer = SyntheticVCFWriter(
 )
 
 for pool in reader.iter_chunks():
-    dosages = build_synthetic_genotypes(pool, plans)  # (V, S) uint8
-    writer.write_chunk(pool, dosages)
+    dosages, fields = build_synthetic_genotypes(pool, plans)
+    writer.write_chunk(pool, dosages, fields or None)
 
 final_paths = writer.finalize()  # bgzip + tabix; returns list of .vcf.gz paths
 ```
 
 **Dosage encoding:** `0 → "0/0"`, `1 → "0/1"`, `2 → "1/1"`, `255 → "./."`.
 All output genotypes are **unphased** (`/` separator).
+
+**FORMAT field carry-through:** when `synthetic_fields` is provided to
+`write_chunk`, the FORMAT column changes from `GT` to `GT:AF` (etc.) and
+each per-sample value becomes e.g. `0/1:0.4531`. Integer-valued fields
+(e.g. DP) are written without a decimal point; NaN is written as `.`.
 
 **Header handling:** copies all header lines from the template VCF, strips
 `##sample=` metadata, replaces sample column names, and prepends a
@@ -1109,6 +1126,8 @@ pool = GenotypePool(
     positions=np.array(..., dtype=np.int64),
     cm_pos=np.array(..., dtype=np.float64),
     variant_info=[VariantInfo(chrom, pos, ref, alts, id, qual, filters, cm_pos), ...],
+    # optional: FORMAT fields carried through from source VCFs
+    format_fields={"AF": np.array(..., dtype=np.float32)},  # shape (V, N)
 )
 
 pool.n_variants  # int
@@ -1117,6 +1136,12 @@ pool.n_samples   # int
 
 `VariantInfo` stores per-site metadata: `chrom`, `pos` (1-based), `ref`,
 `alts` (list), `id`, `qual`, `filters`, `cm_pos`.
+
+`format_fields` is an optional dict mapping FORMAT field names to float32
+arrays of shape `(n_variants, n_samples)`. NaN encodes missing values.
+Populated by `PerSampleVCFReader` when `carry_format_fields` is set; empty
+dict otherwise. The mosaic builder copies these arrays alongside the dosage
+matrix using the same segment-assignment logic.
 
 ---
 
@@ -1253,9 +1278,15 @@ Single-variant regions (`cm_start == cm_end`) match correctly by equality.
 ```python
 from v_shuffler.core.mosaic_builder import build_synthetic_genotypes
 
-synth = build_synthetic_genotypes(pool, plans)
-# → np.ndarray, shape (pool.n_variants, n_output_samples), uint8
+dosages, fields = build_synthetic_genotypes(pool, plans)
+# dosages : np.ndarray, shape (pool.n_variants, n_output_samples), uint8
+# fields  : dict[str, np.ndarray (V, S) float32] — copied FORMAT fields;
+#           empty dict when pool.format_fields is empty
 ```
+
+`fields` uses the same segment masks as `dosages` — each synthetic
+individual's FORMAT values at every variant come from the same donor that
+contributed that variant's dosage.
 
 ---
 
@@ -1322,7 +1353,7 @@ pytest tests/test_empirical_tier2.py -v
 pytest tests/test_empirical_tier2.py -v -s
 ```
 
-**Current status:** 145 tests pass, 6 skip (2 require plink2/bcftools; 4
+**Current status:** 147 tests pass, 6 skip (2 require plink2/bcftools; 4
 require patient VCF env vars). Run time ≈ 18 s.
 
 ---
@@ -1334,7 +1365,7 @@ require patient VCF env vars). Run time ≈ 18 s.
 | `tests/test_recombination.py` | `simulate_crossover_breakpoints`, `build_segment_plan`, `generate_all_segment_plans`, `detect_regions`, `build_region_segment_plan`, `generate_all_region_plans` — edge cases, determinism, adjacency constraint, min_donors |
 | `tests/test_genetic_map.py` | `GeneticMap` — SHAPEIT5 and HapMap format parsing, `bp_to_cm` interpolation, boundary clamping, error handling |
 | `tests/test_mosaic_builder.py` | `apply_segment_plan`, `build_synthetic_genotypes` — correct segment assignment, MISSING fill, chunk boundaries |
-| `tests/test_vcf_io.py` | `PerSampleVCFReader`, `SyntheticVCFWriter`, `resolve_chromosome_name` — round-trip VCF read/write, missing-rate filter, site consistency check, chr-prefix normalisation (four unit tests + two integration tests for cross-convention reading) |
+| `tests/test_vcf_io.py` | `PerSampleVCFReader`, `SyntheticVCFWriter`, `resolve_chromosome_name` — round-trip VCF read/write, missing-rate filter, site consistency check, chr-prefix normalisation, `carry_format_fields` AF read-through and mosaic propagation |
 | `tests/test_cli.py` | Full CLI via `click.testing.CliRunner` — shuffle run, determinism, multi-sample mode, unphased output, error handling; `TestChromosomeNormalisation` (bare VCF + chr-prefix flag, bare flag, normalisation log) |
 | `tests/test_sex_filter.py` | `parse_sex_label`, `sex_filter_for_chromosome`, `load_sex_map`, `filter_vcfs_by_sex` — all label variants, path/basename matching, header/comment handling, error cases; CLI integration for autosome passthrough, chrX female-only filtering, no-sex-file warning, empty-pool error |
 

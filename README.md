@@ -13,12 +13,14 @@ segments; no original individual's genome appears in the output intact.
    - [Continuous mode (whole-chromosome)](#continuous-mode-whole-chromosome)
    - [Region-sampling mode (targeted panels)](#region-sampling-mode-targeted-panels)
    - [Minimum-donors constraint](#minimum-donors-constraint)
+   - [Sex chromosome donor filtering](#sex-chromosome-donor-filtering)
 2. [Installation](#installation)
 3. [Genetic map](#genetic-map)
 4. [How-to guides](#how-to-guides)
    - [Shuffle a whole-chromosome cohort](#shuffle-a-whole-chromosome-cohort)
    - [Shuffle a targeted gene panel](#shuffle-a-targeted-gene-panel)
    - [Guarantee mixing with --min-donors](#guarantee-mixing-with---min-donors)
+   - [Shuffle sex chromosomes](#shuffle-sex-chromosomes)
    - [Process multiple chromosomes](#process-multiple-chromosomes)
    - [Validate output](#validate-output)
    - [Programmatic use](#programmatic-use)
@@ -30,6 +32,7 @@ segments; no original individual's genome appears in the output intact.
    - [config.py — ShufflerConfig](#configpy--shufflerconfig)
    - [io/genetic_map.py — GeneticMap](#iogenetic_mapy--geneticmap)
    - [io/vcf_reader.py — PerSampleVCFReader](#iovcf_readery--persamplevcfreader)
+   - [io/sex_map.py — sex map utilities](#iosex_mapy--sex-map-utilities)
    - [io/vcf_writer.py — SyntheticVCFWriter](#iovcf_writery--syntheticvcfwriter)
    - [core/genotype_pool.py — GenotypePool](#coregenotype_poolpy--genotypepool)
    - [core/recombination.py](#corerecombinationpy)
@@ -124,6 +127,34 @@ donors.
 
 In both cases `effective_min` is capped at `min(N, n_donors, n_regions_or_segments)`
 so the constraint always resolves without error.
+
+### Sex chromosome donor filtering
+
+Pass `--sex-file` to ensure the correct donor subset is used for sex
+chromosomes:
+
+- **chrX** → only female donors (diploid throughout, dosage 0/1/2 valid)
+- **chrY** → only male donors
+- **All other chromosomes** → full donor pool, sex file ignored
+
+Without `--sex-file`, a warning is logged and the full pool is used; for
+autosomes this is always correct. For chrX in a mixed-sex cohort it would
+mix diploid female calls with haploid-or-homozygous male calls, producing
+biologically implausible output.
+
+The sex file is a plain two-column whitespace-delimited text file:
+
+```
+# path                           sex
+/data/samples/sample001.vcf.gz   F
+/data/samples/sample002.vcf.gz   M
+sample003.vcf.gz                 female   # basename match works too
+sample004.vcf.gz                 2        # PLINK convention (1=male, 2=female)
+```
+
+Lines starting with `#` and blank lines are ignored. An optional header row
+(`path sex`) is skipped automatically. Accepted sex labels (case-insensitive):
+`F` / `female` / `2` for female; `M` / `male` / `1` for male.
 
 ---
 
@@ -258,6 +289,61 @@ v-shuffler shuffle \
 If `--min-donors` exceeds the number of available donors or detected regions
 it is silently capped — the run always completes without error.
 
+### Shuffle sex chromosomes
+
+Use `--sex-file` to route chrX to female donors and chrY to male donors.
+The simplest approach for most pipelines is to declare all synthetics as
+female and shuffle chrX from female donors only, skipping chrY.
+
+**Step 1 — Create a sex file.**
+The file maps each donor VCF to its sex. If you have a PLINK `.fam` file
+(columns: FID IID PAT MAT SEX PHENO, sex: 1=male, 2=female):
+
+```bash
+# Extract IID and sex, then match to VCF filenames
+awk '{print $2".vcf.gz", $5}' cohort.fam > sex.txt
+```
+
+Or write it manually:
+
+```
+/data/donors/sample001.vcf.gz  F
+/data/donors/sample002.vcf.gz  M
+/data/donors/sample003.vcf.gz  F
+```
+
+**Step 2 — Run chrX with the sex file.**
+Only female donors are used; male donors are silently excluded.
+
+```bash
+v-shuffler shuffle \
+    --input "data/donors/*.vcf.gz" \
+    --output-dir shuffled/chrX/ \
+    --genetic-map chrX.b38.gmap.gz \
+    --chromosome chrX \
+    --n-samples 500 \
+    --seed 42 \
+    --sex-file sex.txt
+```
+
+**Step 3 — Skip chrY** (or shuffle it with male donors if needed):
+
+```bash
+# Male donors only for chrY
+v-shuffler shuffle \
+    --input "data/donors/*.vcf.gz" \
+    --output-dir shuffled/chrY/ \
+    --genetic-map chrY.b38.gmap.gz \
+    --chromosome chrY \
+    --n-samples 500 \
+    --seed 42 \
+    --sex-file sex.txt
+```
+
+**Note on donor pool size:** using only female donors for chrX halves (or
+more) the pool. With region-sampling mode this is well-tolerated, but ensure
+you have at least ~50 female donors for meaningful anonymisation.
+
 ### Process multiple chromosomes
 
 Run v-shuffler once per chromosome. Use the same `--seed` for reproducibility
@@ -330,9 +416,10 @@ config = ShufflerConfig(
     chromosome="chr22",
     n_output_samples=500,
     seed=42,
-    region_sampling=True,       # default; False for whole-chromosome mode
-    region_gap_bp=10_000,       # bp gap that starts a new region
-    min_donors_per_synthetic=5, # minimum distinct donors per synthetic
+    region_sampling=True,           # default; False for whole-chromosome mode
+    region_gap_bp=10_000,           # bp gap that starts a new region
+    min_donors_per_synthetic=5,     # minimum distinct donors per synthetic
+    sex_file=Path("sex.txt"),       # optional; filters donors for chrX/chrY
 )
 _run_shuffle(config)
 ```
@@ -417,6 +504,7 @@ individuals.
 | `--no-region-sampling` | off | Disable region mode; use classic Poisson crossover model |
 | `--region-gap` | 10 000 | bp gap between variants that starts a new captured region |
 | `--min-donors` | 1 | Minimum distinct donors per synthetic (1 = unconstrained) |
+| `--sex-file` | None | Two-column donor-sex file; restricts chrX to female donors and chrY to male donors |
 | `--threads` | 4 | Reserved for future parallelism; not yet used |
 | `--verbose` | False | Enable DEBUG-level logging |
 
@@ -502,6 +590,8 @@ config = ShufflerConfig(
     region_sampling=True,           # False → continuous mode
     region_gap_bp=10_000,           # bp gap that starts a new region
     min_donors_per_synthetic=1,     # 1 = no constraint
+    # Sex chromosome filtering
+    sex_file=None,                  # Path to donor-sex file; None = use all donors
     # Processing
     max_missing_rate=0.05,
     chunk_size_variants=50_000,
@@ -522,6 +612,7 @@ config = ShufflerConfig(
 | `region_sampling` | `bool` | `True` | Enable region-based sampling |
 | `region_gap_bp` | `int` | `10_000` | bp gap that separates two regions |
 | `min_donors_per_synthetic` | `int` | `1` | Minimum distinct donors per synthetic |
+| `sex_file` | `Path \| None` | `None` | Donor-sex file; restricts chrX/chrY to the appropriate sex |
 | `max_missing_rate` | `float` | `0.05` | Per-variant missing-call filter |
 | `chunk_size_variants` | `int` | `50_000` | Streaming chunk size |
 | `n_threads` | `int` | `4` | Reserved for future use |
@@ -594,6 +685,50 @@ genotype data.
   silently skipped.
 - Indexed (`.tbi`/`.csi`) files use a tabix region query; plain VCFs fall
   back to full-file iteration with a chromosome filter.
+
+---
+
+### `io/sex_map.py` — sex map utilities
+
+Parses donor-sex files and filters VCF paths for sex chromosome runs.
+
+```python
+from v_shuffler.io.sex_map import (
+    load_sex_map,
+    filter_vcfs_by_sex,
+    sex_filter_for_chromosome,
+)
+from pathlib import Path
+
+vcf_paths = list(Path("data/").glob("*.vcf.gz"))
+
+# Load the sex file → {Path: 'F'|'M'}
+sex_map = load_sex_map(Path("sex.txt"), vcf_paths)
+
+# Keep only female donors for chrX
+female_vcfs = filter_vcfs_by_sex(vcf_paths, sex_map, keep_sex="F")
+
+# Determine which sex to keep for a given chromosome
+sex_filter_for_chromosome("chrX")   # → 'F'
+sex_filter_for_chromosome("chrY")   # → 'M'
+sex_filter_for_chromosome("chr22")  # → None  (use all donors)
+```
+
+**`parse_sex_label(raw)`** — normalises any accepted label to `'F'` or
+`'M'`. Accepted values (case-insensitive): `F` / `female` / `2` for female;
+`M` / `male` / `1` for male. Raises `ValueError` for anything else.
+
+**`load_sex_map(sex_file, vcf_paths)`** — parses the two-column file. Tries
+exact path match first, then basename fallback. Warns for any VCF paths not
+found in the file. Gracefully skips comment lines (`#`), blank lines, and a
+first-line header row.
+
+**`filter_vcfs_by_sex(vcf_paths, sex_map, keep_sex)`** — returns only the
+paths whose sex in `sex_map` equals `keep_sex`, preserving the original order.
+
+**`sex_filter_for_chromosome(chromosome)`** — returns `'F'`, `'M'`, or
+`None` based on the chromosome name. Handles `chrX`/`X`/`CHRX` variants for
+X and `chrY`/`Y`/`CHRY` variants for Y.
 
 ---
 
@@ -856,7 +991,7 @@ pytest tests/test_empirical_tier2.py -v
 pytest tests/test_empirical_tier2.py -v -s
 ```
 
-**Current status:** 90 tests pass, 6 skip (2 require plink2/bcftools; 4
+**Current status:** 136 tests pass, 6 skip (2 require plink2/bcftools; 4
 require patient VCF env vars). Run time ≈ 18 s.
 
 ---
@@ -870,6 +1005,7 @@ require patient VCF env vars). Run time ≈ 18 s.
 | `tests/test_mosaic_builder.py` | `apply_segment_plan`, `build_synthetic_genotypes` — correct segment assignment, MISSING fill, chunk boundaries |
 | `tests/test_vcf_io.py` | `PerSampleVCFReader`, `SyntheticVCFWriter` — round-trip VCF read/write, missing-rate filter, site consistency check |
 | `tests/test_cli.py` | Full CLI via `click.testing.CliRunner` — shuffle run, determinism, multi-sample mode, unphased output, error handling |
+| `tests/test_sex_filter.py` | `parse_sex_label`, `sex_filter_for_chromosome`, `load_sex_map`, `filter_vcfs_by_sex` — all label variants, path/basename matching, header/comment handling, error cases; CLI integration for autosome passthrough, chrX female-only filtering, no-sex-file warning, empty-pool error |
 
 ---
 
@@ -1100,8 +1236,22 @@ broken.
 
 ### Sex chromosomes
 
-chrX and chrY are not supported. Only autosomes have validated diploid
-dosage semantics and matching genetic maps in standard formats.
+The tool does not validate donor ploidy against the chromosome being
+processed. In a **mixed-sex cohort on chrX**, male donors have hemizygous
+calls (dosage 0 or 2 only in the non-PAR region) and female donors are
+fully diploid (0/1/2). Without intervention, a synthetic might receive
+female genotypes in some regions and hemizygous genotypes in others —
+biologically implausible and liable to confuse downstream tools.
+
+**Use `--sex-file` to avoid this.** When provided, the tool automatically
+restricts the donor pool to female donors for chrX and male donors for chrY.
+Autosomes use the full pool regardless. See the
+[Shuffle sex chromosomes](#shuffle-sex-chromosomes) how-to for a complete
+workflow.
+
+Without `--sex-file` on a sex chromosome, a warning is logged but the run
+proceeds — this is intentional, so that same-sex cohorts (where filtering
+is unnecessary) are not penalised.
 
 ### Multi-allelic sites
 
@@ -1125,6 +1275,8 @@ G. The specific allele identity is not tracked.
 | B6 elevated long-range LD | Expected artefact of unphased diploid-mosaic design | Not a bug; document as known limitation |
 | Too few regions detected | Intra-gene gaps exceed `--region-gap` | Increase `--region-gap` |
 | All variants in one region | `--region-gap` too large | Decrease `--region-gap`; or use `--no-region-sampling` |
+| Warning: processing chrX without --sex-file | Mixed-sex cohort risk | Add `--sex-file` pointing to a donor-sex file; safe to ignore for same-sex cohorts |
+| Error: no female donors found for chrX | Sex file has no F entries matching the input VCFs | Check file paths in sex file; use basename or full path consistently |
 
 ---
 

@@ -33,6 +33,7 @@ segments; no original individual's genome appears in the output intact.
    - [One VCF per sample](#one-vcf-per-sample)
    - [Phasing](#phasing)
    - [Site concordance across VCFs](#site-concordance-across-vcfs)
+   - [Per-sample variant-only VCFs (panel and WES data)](#per-sample-variant-only-vcfs-panel-and-wes-data)
    - [File format and indexing](#file-format-and-indexing)
    - [Cohort size](#cohort-size)
    - [Ploidy](#ploidy)
@@ -427,6 +428,26 @@ v-shuffler validate \
     --chromosome chr22
 ```
 
+**For panel or WES data with many rare variants:** the AF Pearson r ≥ 0.99
+threshold applies to common variants only. When the site set is dominated by
+rare private variants (MAF < 5%), the AF correlation across all sites will be
+substantially lower than 0.99 even when the tool is working correctly — this
+is a statistical property of estimating rare-variant frequencies from a small
+synthetic cohort, not an algorithmic failure. Restrict the reference VCF to
+MAF > 5% sites before validation:
+
+```bash
+# Filter reference to MAF >5% for AF validation
+bcftools view -q 0.05:minor merged_donors.vcf.gz \
+    -Oz -o merged_donors_common.vcf.gz
+tabix -p vcf merged_donors_common.vcf.gz
+
+v-shuffler validate \
+    --input "shuffled/synthetic_*.vcf.gz" \
+    --reference-vcf merged_donors_common.vcf.gz \
+    --chromosome chr22
+```
+
 For a more thorough quantitative assessment, run the empirical test suite
 (see [Test suite](#test-suite)).
 
@@ -668,6 +689,76 @@ bcftools isec -p isec_out/ -Oz \
     ... \
     normalised/sampleN.vcf.gz
 ```
+
+### Per-sample variant-only VCFs (panel and WES data)
+
+Per-sample HaplotypeCaller (or equivalent) VCFs contain only the sites where
+that individual had a variant call — homozygous-reference sites are absent.
+This means different samples have different site sets, causing the site
+consistency check to fail immediately.
+
+The correct preprocessing for this data type is to apply a depth filter,
+merge with reference-fill, re-normalise, and split back:
+
+**Step 1 — Filter low-coverage variants.**
+Calls with fewer than 20 reads are unreliable and should be removed before
+any downstream use:
+
+```bash
+mkdir -p normalised_dp20/
+for f in per_sample/*.vcf.gz; do
+    base=$(basename "$f")
+    bcftools view -i 'FORMAT/DP>=20' "$f" \
+        -Oz -o "normalised_dp20/${base}"
+    tabix -p vcf "normalised_dp20/${base}"
+done
+```
+
+**Step 2 — Merge with reference-fill.**
+`bcftools merge --missing-to-ref` fills absent sites as `0/0`, consolidating
+all per-sample site sets into one concordant multi-sample VCF. This is valid
+when all samples were generated from the **same capture panel** on the same
+sequencing platform — the assumption that "absent variant = homozygous
+reference" holds for well-covered panel sites. Sites where a sample had
+genuinely insufficient coverage were removed in Step 1.
+
+```bash
+ls normalised_dp20/*.vcf.gz > sample_list.txt
+
+bcftools merge \
+    --missing-to-ref \
+    --file-list sample_list.txt \
+    -r 22 \                    # restrict to chromosome of interest
+    -Oz -o merged_chr22.vcf.gz
+tabix -p vcf merged_chr22.vcf.gz
+```
+
+**Step 3 — Re-normalise the merged VCF.**
+Merging can create multiallelic records at positions where different samples
+carry different ALT alleles. Split these back to biallelic before shuffling:
+
+```bash
+bcftools norm \
+    -m -any \
+    --keep-sum AD \
+    merged_chr22.vcf.gz \
+    -Oz -o merged_chr22_norm.vcf.gz
+tabix -p vcf merged_chr22_norm.vcf.gz
+```
+
+**Step 4 — Split back to per-sample VCFs.**
+v-shuffler requires one file per donor. The split files now share an
+identical site set across all samples:
+
+```bash
+mkdir -p per_sample_merged/
+bcftools +split -Oz merged_chr22_norm.vcf.gz -o per_sample_merged/
+for f in per_sample_merged/*.vcf.gz; do tabix -p vcf "$f"; done
+```
+
+The resulting per-sample VCFs are suitable as direct input to v-shuffler.
+See [AF correlation on rare-variant-dominated data](#af-correlation-on-rare-variant-dominated-data)
+for an important limitation that applies when validating the output.
 
 ### File format and indexing
 
@@ -1314,6 +1405,50 @@ pytest tests/test_patient_end_to_end.py -v -s
 | `test_af_preserved` | AF Pearson r ≥ 0.99 |
 | `test_variant_count_consistent` | All synth variant positions present in donor pool |
 
+**Required input preparation for per-sample variant-only VCFs.**
+Standard per-sample HaplotypeCaller output contains only called variant sites,
+so different samples have different site sets and v-shuffler's site consistency
+check will fail. The required preprocessing steps are:
+
+1. Filter out low-coverage calls (`FORMAT/DP >= 20`).
+2. Merge with `bcftools merge --missing-to-ref` (absent = homozygous reference,
+   valid when all samples use the same capture panel).
+3. Re-normalise with `bcftools norm -m -any --keep-sum AD` to split any
+   multiallelics introduced by the merge.
+4. Split back to per-sample with `bcftools +split`.
+
+See [Per-sample variant-only VCFs](#per-sample-variant-only-vcfs-panel-and-wes-data)
+for the complete command sequence.
+
+**AF correlation threshold for panel data.**
+The `test_af_preserved` threshold of r ≥ 0.99 applies to common variant data.
+After `--missing-to-ref` merging, a clinical panel dataset is typically
+dominated by rare and private variants (MAF < 1%). With a small synthetic
+cohort (e.g., 20 samples), estimating allele frequency at rare sites has high
+sampling variance — a site with a single het carrier in 138 donors (AF ≈ 0.4%)
+will either appear or not in any given synthetic purely by chance, creating
+scatter that holds the global Pearson r well below 0.99 even when the
+algorithm is working correctly.
+
+**For panel data, restrict AF validation to MAF > 5%** — these are the sites
+where the algorithm's AF-preservation property can actually be measured. In
+practice this means passing a MAF-filtered reference VCF to `VSHUFFLE_REFERENCE_VCF`
+or filtering the merged donor VCF before running the test:
+
+```bash
+bcftools view -q 0.05:minor merged_donors.vcf.gz -Oz -o merged_common.vcf.gz
+```
+
+On validated 138-sample chr22 panel data with DP ≥ 20 filtering and 20
+synthetic individuals, the empirical results were:
+
+| Test | Result | Notes |
+|------|--------|-------|
+| `test_shuffle_produced_output` | ✅ Pass | 20 synthetic VCFs written |
+| `test_no_identity_leak` | ✅ Pass | Max concordance < 0.99 (anonymisation effective) |
+| `test_af_preserved` | ⚠ Fails at r = 0.94 on all 28 976 sites | Expected; passes when restricted to MAF > 5% sites |
+| `test_variant_count_consistent` | ✅ Pass | All 28 976 positions consistent |
+
 ---
 
 ### Full metrics summary
@@ -1401,6 +1536,35 @@ Without `--sex-file` on a sex chromosome, a warning is logged but the run
 proceeds — this is intentional, so that same-sex cohorts (where filtering
 is unnecessary) are not penalised.
 
+### AF correlation on rare-variant-dominated data
+
+The AF Pearson r ≥ 0.99 threshold is designed for datasets with a broadly
+uniform allele-frequency distribution (e.g., common variants from
+whole-chromosome or whole-genome data). It breaks down for clinical panel or
+WES data after `bcftools merge --missing-to-ref` because:
+
+- **Most sites are rare or private.** After merging 138 per-sample
+  variant-only VCFs, approximately 50% of sites have MAF < 1% — these are
+  variants carried by only one or two patients. The mean AF across all sites
+  is ~9%.
+
+- **Rare-variant AF estimates from a small synthetic cohort have high
+  sampling variance.** A site carried by a single het donor (AF = 0.4%) will
+  either appear in a given synthetic (AF = 2.5% of a 20-synthetic cohort) or
+  not (AF = 0%) depending purely on which donor was assigned to that region.
+  This binary scatter across thousands of rare sites suppresses the Pearson r
+  far below 0.99 even when the algorithm is working correctly.
+
+- **AF preservation holds in expectation.** The expected synthetic AF at any
+  site equals the donor AF — this is guaranteed by the uniform random donor
+  assignment in region-sampling. The departure from r = 0.99 is sampling
+  noise, not systematic bias.
+
+**Remedy:** restrict AF validation to MAF > 5% sites, where the algorithm's
+AF-preservation property can be measured with reasonable statistical power.
+The identity-leak test (max concordance < 0.99) is the primary anonymisation
+check and is not affected by this limitation.
+
 ### Multi-allelic sites
 
 v-shuffler encodes genotypes as a total alt-allele dosage (0/1/2), which
@@ -1420,7 +1584,9 @@ the dosage representation unambiguous. See
 |-------------|-------------|--------|
 | P2 attack rate > 50% | Too few mixing units; one donor dominates | Switch to region mode; increase `--min-donors`; use larger pool |
 | P4 membership inference p < 0.001 | Strong in-pool concordance signal | Same as P2; also increase variant panel density |
-| B1 AF r < 0.99 | Donor pool imbalance or population stratification | Verify all donors are from the same population; check `--chromosome` is the right chromosome |
+| B1 AF r < 0.99 on whole-chromosome data | Donor pool imbalance or population stratification | Verify all donors are from the same population; check `--chromosome` is the right chromosome |
+| B1 AF r < 0.99 on panel / WES data | Site set dominated by rare and private variants (MAF < 5%) | Expected behaviour; re-run validation restricted to MAF > 5% sites (`bcftools view -q 0.05:minor`) |
+| Site mismatch error on startup | Per-sample variant-only VCFs have different site sets | Apply DP filter + `bcftools merge --missing-to-ref` + re-normalise + `bcftools +split`; see [Per-sample variant-only VCFs](#per-sample-variant-only-vcfs-panel-and-wes-data) |
 | Output VCFs are empty (0 variants) | Chromosome name could not be resolved | Run with `--verbose` to see whether normalisation fired; check VCF `##contig` headers |
 | B2 het rate shift | Systematic genotype encoding error | Check that dosage encoding is 0/1/2, not 0/1/1 |
 | Unexpected allele identities in output (e.g. wrong ALT allele at het sites) | Multi-allelic records in input not decomposed | Run `bcftools norm -m -any --keep-sum AD` on all donor VCFs before shuffling |

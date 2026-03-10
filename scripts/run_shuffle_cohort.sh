@@ -12,6 +12,8 @@
 #   -c CHROMS   Space-separated chromosome list, e.g. "1 2 3 22 X" (default: 1-22 X)
 #   -d INT      Minimum FORMAT/DP to retain a variant (default: 20)
 #   -f FIELDS   Comma-separated FORMAT fields to carry into synthetic output, e.g. "AF,DP,AD"
+#   -p PATTERN  Glob pattern to select input files (default: "*.vcf.gz"); use e.g.
+#               "*tnhaplotyper2*" to exclude other callers in a mixed directory
 #   -n INT      Number of parallel chromosomes to process (default: nproc / 2, min 1)
 #   -e PATH     Path to v-shuffler venv (default: /tmp/vshuffler-venv)
 #   -k          Keep per-chromosome intermediate files after combining (default: delete)
@@ -39,6 +41,7 @@ SEX_FILE_ORIG=""
 CHROMS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 X"
 MIN_DP=20
 FORMAT_FIELDS=""
+INPUT_PATTERN="*.vcf.gz"
 VENV="/tmp/vshuffler-venv"
 KEEP_INTERMEDIATES=0
 RESUME=0
@@ -51,7 +54,7 @@ MAX_PARALLEL="$DEFAULT_PARALLEL"
 # ---------------------------------------------------------------------------
 # Parse arguments
 # ---------------------------------------------------------------------------
-while getopts "i:o:m:s:c:d:f:n:e:kr" opt; do
+while getopts "i:o:m:s:c:d:f:p:n:e:kr" opt; do
     case "$opt" in
         i) INPUT_DIR="$OPTARG" ;;
         o) OUTPUT_BASE="$OPTARG" ;;
@@ -60,6 +63,7 @@ while getopts "i:o:m:s:c:d:f:n:e:kr" opt; do
         c) CHROMS="$OPTARG" ;;
         d) MIN_DP="$OPTARG" ;;
         f) FORMAT_FIELDS="$OPTARG" ;;
+        p) INPUT_PATTERN="$OPTARG" ;;
         n) MAX_PARALLEL="$OPTARG" ;;
         e) VENV="$OPTARG" ;;
         k) KEEP_INTERMEDIATES=1 ;;
@@ -90,6 +94,7 @@ echo "$(date '+%H:%M:%S')   sex file:      ${SEX_FILE_ORIG:-none}" | tee -a "$LO
 echo "$(date '+%H:%M:%S')   chromosomes:   $CHROMS" | tee -a "$LOG"
 echo "$(date '+%H:%M:%S')   min DP:        $MIN_DP" | tee -a "$LOG"
 echo "$(date '+%H:%M:%S')   format fields: ${FORMAT_FIELDS:-GT only}" | tee -a "$LOG"
+echo "$(date '+%H:%M:%S')   file pattern:  $INPUT_PATTERN" | tee -a "$LOG"
 echo "$(date '+%H:%M:%S')   parallel:      $MAX_PARALLEL" | tee -a "$LOG"
 echo "$(date '+%H:%M:%S') ============================================" | tee -a "$LOG"
 
@@ -98,8 +103,8 @@ echo "$(date '+%H:%M:%S') ============================================" | tee -a
 # ---------------------------------------------------------------------------
 DONOR_LIST="$WORK_BASE/donor_list.txt"
 
-echo "$(date '+%H:%M:%S') Applying DP>=$MIN_DP filter to input VCFs..." | tee -a "$LOG"
-for f in "$INPUT_DIR"/*.vcf.gz; do
+echo "$(date '+%H:%M:%S') Applying DP>=$MIN_DP filter to input VCFs (pattern: $INPUT_PATTERN)..." | tee -a "$LOG"
+for f in "$INPUT_DIR"/$INPUT_PATTERN; do
     base=$(basename "$f")
     out="$FILTERED_DIR/$base"
     if [ ! -f "$out" ]; then

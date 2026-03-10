@@ -43,33 +43,16 @@ def _dosage_to_gt_str(dosage: int) -> str:
     return _DOSAGE_TO_GT.get(int(dosage), "./.")
 
 
-_HTSLIB_MISSING_INT = -2_147_483_648  # htslib sentinel for missing integer FORMAT fields
-
-
-def _format_float(val: float) -> str:
+def _build_sample_str(dosage: int, field_vals: list[str]) -> str:
     """
-    Format a float value for a VCF FORMAT field.
+    Build the per-sample column value, e.g. ``'0/1:0.4531:127'`` or
+    ``'0/1:0.4531:3932:1904,3028'``.
 
-    - NaN or htslib missing-integer sentinel (-2147483648) → "."
-    - Non-negative whole numbers (e.g. depth) → integer string ("127")
-    - Fractional values → compact 4-significant-figure form ("0.4531")
-
-    The htslib sentinel arises for integer FORMAT fields (DP, AD, etc.) that
-    are absent in filled-in 0/0 genotypes produced by bcftools merge
-    --missing-to-ref; cyvcf2 returns -2147483648 for these rather than NaN.
+    *field_vals* are VCF-ready strings already formatted by
+    ``_get_format_str`` in the reader (single values like ``"0.4531"`` or
+    multi-value like ``"1904,3028"``).  They are passed straight through.
     """
-    import math
-    if math.isnan(val) or int(val) == _HTSLIB_MISSING_INT:
-        return "."
-    if float(val) == int(float(val)) and float(val) >= 0:
-        return str(int(float(val)))
-    return f"{val:.4g}"
-
-
-def _build_sample_str(dosage: int, field_vals: list[float]) -> str:
-    """Build the per-sample column value, e.g. '0/1:0.4531:127'."""
-    parts = [_dosage_to_gt_str(dosage)]
-    parts.extend(_format_float(v) for v in field_vals)
+    parts = [_dosage_to_gt_str(dosage)] + list(field_vals)
     return ":".join(parts)
 
 
@@ -197,7 +180,7 @@ class SyntheticVCFWriter:
                 sample_cols = "\t".join(
                     _build_sample_str(
                         synthetic_dosages[v_idx, s],
-                        [float(fields[f][v_idx, s]) for f in field_names],
+                        [str(fields[f][v_idx, s]) for f in field_names],
                     )
                     for s in range(n_out)
                 )
@@ -207,7 +190,7 @@ class SyntheticVCFWriter:
                 for s_idx, writer in enumerate(self._writers):
                     sample_col = _build_sample_str(
                         synthetic_dosages[v_idx, s_idx],
-                        [float(fields[f][v_idx, s_idx]) for f in field_names],
+                        [str(fields[f][v_idx, s_idx]) for f in field_names],
                     )
                     writer.write(self._format_record(vi, sample_col, fmt_str))
 

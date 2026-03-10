@@ -103,25 +103,46 @@ def _gt_to_dosage(gt: list) -> int:
     return int(a1 > 0) + int(a2 > 0)
 
 
-def _get_format_float(variant, field_name: str) -> float:
-    """
-    Extract a single float value from a FORMAT field of one cyvcf2 variant.
+_HTSLIB_MISSING_INT = -2_147_483_648  # htslib sentinel for missing integer FORMAT fields
 
-    Returns NaN for missing (``"."``) or absent fields.  For multi-value fields
-    (e.g. Mutect2 ``AF`` with ``Number=A``) the first element is returned.
+
+def _fmt_val(v: float) -> str:
+    """Format a single numeric value as a VCF string, mapping sentinels to '.'."""
+    if v != v:  # NaN
+        return "."
+    if v == _HTSLIB_MISSING_INT:
+        return "."
+    if v >= 0 and v == int(v):
+        return str(int(v))
+    return f"{v:.4g}"
+
+
+def _get_format_str(variant, field_name: str) -> str:
+    """
+    Extract a FORMAT field from one cyvcf2 variant and return it as a
+    VCF-ready string.
+
+    - Single-value fields (e.g. ``AF``, ``DP``) → ``"0.4531"`` / ``"127"``
+    - Multi-value fields (e.g. ``AD`` with ``Number=R``) → ``"1904,3028"``
+    - Missing or htslib sentinel → ``"."``
+
+    Storing as strings means the field is carried through unchanged regardless
+    of whether it is single- or multi-valued, and htslib's missing-integer
+    sentinel (-2147483648) is handled at read time rather than at write time.
     """
     try:
         data = variant.format(field_name)
         if data is None:
-            return float("nan")
-        val = data[0]                      # first (only) sample in a per-sample VCF
-        if hasattr(val, "__len__"):
-            val = val[-1]                  # last element: for Number=R (e.g. AD=[ref,alt])
-                                           # this gives the alt-allele value; for Number=A
-                                           # (e.g. AF) the array has length 1 so val[-1]==val[0]
-        return float(val)
+            return "."
+        val = data[0]  # first (only) sample in a per-sample VCF
+        if hasattr(val, "__len__") and len(val) > 1:
+            # Multi-value field (e.g. AD with Number=R): return all values
+            return ",".join(_fmt_val(float(v)) for v in val)
+        else:
+            v = float(val[0] if hasattr(val, "__len__") else val)
+            return _fmt_val(v)
     except (TypeError, ValueError, IndexError):
-        return float("nan")
+        return "."
 
 
 
@@ -229,15 +250,17 @@ class PerSampleVCFReader:
                 alts=list(v0.ALT),
                 id=v0.ID or ".",
                 qual=v0.QUAL,
-                filters=list(v0.FILTER) if v0.FILTER else [],
+                filters=v0.FILTER.split(";") if v0.FILTER else [],
                 cm_pos=cm,
             ))
 
-            # Collect extra FORMAT fields
+            # Collect extra FORMAT fields as VCF-ready strings (object dtype).
+            # Using strings handles both single-value (AF, DP) and multi-value
+            # (AD = "ref,alt") fields uniformly, and avoids htslib sentinel issues.
             for field_name in self.carry_format_fields:
                 vals = np.array(
-                    [_get_format_float(v, field_name) for v in variants],
-                    dtype=np.float32,
+                    [_get_format_str(v, field_name) for v in variants],
+                    dtype=object,
                 )
                 chunk_fmt[field_name].append(vals)
 

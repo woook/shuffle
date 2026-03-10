@@ -235,10 +235,10 @@ def test_carry_format_fields_reads_af(tmp_path: Path) -> None:
     assert "AF" in pool.format_fields
     af = pool.format_fields["AF"]
     assert af.shape == (3, 1)
-    assert abs(float(af[0, 0]) - 0.42) < 1e-4
-    assert abs(float(af[1, 0]) - 0.91) < 1e-4
-    import math
-    assert math.isnan(float(af[2, 0]))  # "." → NaN
+    assert af.dtype == object
+    assert af[0, 0] == "0.42"
+    assert af[1, 0] == "0.91"
+    assert af[2, 0] == "."   # missing → "."
 
 
 def test_carry_format_fields_propagates_to_output(tmp_path: Path) -> None:
@@ -252,8 +252,8 @@ def test_carry_format_fields_propagates_to_output(tmp_path: Path) -> None:
     n_variants = 4
     n_donors = 2
     dosages = np.array([[1, 2], [0, 1], [2, 0], [1, 1]], dtype=np.uint8)
-    af_vals = np.array([[0.45, 0.90], [0.0, 0.50], [0.88, 0.0], [0.30, 0.70]],
-                       dtype=np.float32)
+    af_vals = np.array([["0.45", "0.9"], ["0.0", "0.5"], ["0.88", "0.0"], ["0.3", "0.7"]],
+                       dtype=object)
     cm_pos = np.array([0.0, 1.0, 2.0, 3.0])
     variant_info = [
         VariantInfo("chr22", i * 100, "A", ["G"], ".", None, [], float(i))
@@ -278,11 +278,11 @@ def test_carry_format_fields_propagates_to_output(tmp_path: Path) -> None:
     af_out = synth_fields["AF"][:, 0]
 
     # Variants 0-1 (cm 0.0, 1.0) → donor 0
-    assert abs(float(af_out[0]) - 0.45) < 1e-4
-    assert abs(float(af_out[1]) - 0.0) < 1e-4
+    assert af_out[0] == "0.45"
+    assert af_out[1] == "0.0"
     # Variants 2-3 (cm 2.0, 3.0) → donor 1
-    assert abs(float(af_out[2]) - 0.0) < 1e-4
-    assert abs(float(af_out[3]) - 0.70) < 1e-4
+    assert af_out[2] == "0.0"
+    assert af_out[3] == "0.7"
 
 
 def test_no_format_fields_returns_empty_dict(tmp_path: Path) -> None:

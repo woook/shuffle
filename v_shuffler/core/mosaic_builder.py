@@ -83,9 +83,11 @@ def build_synthetic_genotypes(
     n_output = len(segment_plans)
     dosage_result = np.empty((pool.n_variants, n_output), dtype=np.uint8)
 
-    # Initialise format-field output arrays (NaN = not yet assigned)
+    # Initialise format-field output arrays ("." = not yet assigned).
+    # Arrays use object dtype to carry VCF-ready strings for both single-value
+    # fields (AF → "0.4531") and multi-value fields (AD → "1904,3028").
     field_results: dict[str, np.ndarray] = {
-        name: np.full((pool.n_variants, n_output), np.nan, dtype=np.float32)
+        name: np.full((pool.n_variants, n_output), ".", dtype=object)
         for name in pool.format_fields
     }
 

@@ -105,7 +105,7 @@ an independent mixing unit:
    all variant positions (one lightweight pass, no genotype loading).
 2. **Region detection** — `detect_regions()` groups positions into contiguous
    clusters using a configurable gap threshold (default: 10 kb). Each cluster
-   corresponds to one captured gene or exon.
+   corresponds crudely to one captured gene.
 3. **Plan generation** — `build_region_segment_plan()` assigns one randomly
    chosen donor to each region independently. A without-replacement phase
    ensures that the first `min_donors` regions each get a distinct donor;

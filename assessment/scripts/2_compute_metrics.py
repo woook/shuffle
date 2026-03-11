@@ -247,7 +247,7 @@ def compute_format_consistency(vcf_path: Path, sample_name: str) -> Dict:
                         af_gt_discordant += 1
                 else:
                     missing_af += 1
-        except:
+        except (AttributeError, IndexError, KeyError, TypeError):
             missing_af += 1
 
         # Check DP
@@ -259,7 +259,7 @@ def compute_format_consistency(vcf_path: Path, sample_name: str) -> Dict:
                     dp_values.append(dp_val)
                 else:
                     missing_dp += 1
-        except:
+        except (AttributeError, IndexError, KeyError, TypeError):
             missing_dp += 1
 
         # Check AD
@@ -286,7 +286,7 @@ def compute_format_consistency(vcf_path: Path, sample_name: str) -> Dict:
                             ad_gt_discordant += 1
                 else:
                     missing_ad += 1
-        except:
+        except (AttributeError, IndexError, KeyError, TypeError):
             missing_ad += 1
 
     vcf.close()

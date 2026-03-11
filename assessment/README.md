@@ -28,7 +28,7 @@ assessment/
 ├── scripts/                      # Analysis scripts
 │   ├── 1_select_samples.py       # Phase 1: Random sample selection
 │   ├── 2_compute_metrics.py      # Phase 2: Per-sample quality metrics
-│   ├── 3_hwe_analysis_python.py  # Phase 2.3: Hardy-Weinberg Equilibrium
+│   ├── 3_hwe_analysis_python.py  # Phase 3: Hardy-Weinberg Equilibrium
 │   ├── 4_create_visualizations.py # Plotting script
 │   ├── 5_analyze_configuration.py # Phase 5: Configuration & risk assessment
 │   └── 6_generate_final_report.py # Final report generation
@@ -148,7 +148,7 @@ assessment/
 ### Phase 5: Configuration Analysis
 - **Source**: Shuffle log files from synthetic VCF output directories
 - **Extracted**: Region-sampling mode, min_donors, donor pool size, segment counts
-- **Script**: `assessment/scripts/5_analyze_configuration.py`
+- **Script**: `scripts/5_analyze_configuration.py`
 
 ### Phase 6: Risk Assessment Report
 - **Integrates**: All metrics, configuration, theoretical risk analysis
@@ -187,7 +187,7 @@ These analyses are recommended for future assessments but were not critical for 
 1. **Increase `--min-donors` to ≥5**: Further reduces primary donor dominance
 2. **Complete population structure analysis**: Run PCA/IBS to rule out identity leaks definitively
 3. **Validate with held-out donors**: Use `shuffle validate` when feasible
-4. **Tune region counts**: Consider increasing region-gap threshold for higher region counts (>100)
+4. **Tune region counts**: Consider decreasing `--region-gap` threshold to increase region counts (>100). A smaller gap prevents merging nearby variants into single regions, yielding more detected regions and better mixing.
 5. **Document configuration**: Save shuffle command-line arguments for audit trail
 
 ---

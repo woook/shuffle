@@ -12,6 +12,7 @@ Computes comprehensive quality metrics for each selected sample:
 import json
 import subprocess
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Dict, List, Tuple
 from collections import defaultdict, Counter
@@ -70,8 +71,6 @@ def compute_basic_stats(vcf_path: Path, sample_name: str) -> Dict:
         - Observed heterozygosity
         - Ti/Tv ratio
     """
-    vcf = VCF(str(vcf_path))
-
     total_variants = 0
     missing_count = 0
     gt_counts = Counter()
@@ -79,35 +78,34 @@ def compute_basic_stats(vcf_path: Path, sample_name: str) -> Dict:
     tv_count = 0
     chr_variants = defaultdict(int)
 
-    for variant in vcf:
-        total_variants += 1
-        chr_variants[variant.CHROM] += 1
+    with closing(VCF(str(vcf_path))) as vcf:
+        for variant in vcf:
+            total_variants += 1
+            chr_variants[variant.CHROM] += 1
 
-        # Get genotype for first (only) sample
-        gt = variant.genotypes[0]  # [allele1, allele2, phased]
+            # Get genotype for first (only) sample
+            gt = variant.genotypes[0]  # [allele1, allele2, phased]
 
-        # Count genotype
-        if gt[0] == -1 or gt[1] == -1:
-            missing_count += 1
-            gt_counts["missing"] += 1
-        elif gt[0] == 0 and gt[1] == 0:
-            gt_counts["0/0"] += 1
-        elif gt[0] != gt[1]:
-            gt_counts["0/1"] += 1
-        elif gt[0] == gt[1] and gt[0] > 0:
-            gt_counts["1/1"] += 1
+            # Count genotype
+            if gt[0] == -1 or gt[1] == -1:
+                missing_count += 1
+                gt_counts["missing"] += 1
+            elif gt[0] == 0 and gt[1] == 0:
+                gt_counts["0/0"] += 1
+            elif gt[0] != gt[1]:
+                gt_counts["0/1"] += 1
+            elif gt[0] == gt[1] and gt[0] > 0:
+                gt_counts["1/1"] += 1
 
-        # Ti/Tv classification (only for SNPs)
-        if variant.is_snp and len(variant.ALT) == 1:
-            ref = variant.REF
-            alt = variant.ALT[0]
-            mut_type = classify_mutation(ref, alt)
-            if mut_type == "transition":
-                ti_count += 1
-            elif mut_type == "transversion":
-                tv_count += 1
-
-    vcf.close()
+            # Ti/Tv classification (only for SNPs)
+            if variant.is_snp and len(variant.ALT) == 1:
+                ref = variant.REF
+                alt = variant.ALT[0]
+                mut_type = classify_mutation(ref, alt)
+                if mut_type == "transition":
+                    ti_count += 1
+                elif mut_type == "transversion":
+                    tv_count += 1
 
     # Calculate rates
     missing_rate = missing_count / total_variants if total_variants > 0 else 0
@@ -139,8 +137,6 @@ def compute_allele_frequency_dist(vcf_path: Path) -> Dict:
     Bins: 0-1%, 1-5%, 5-10%, 10-25%, 25-50%
     Note: For single-sample VCFs, AF is computed from GT
     """
-    vcf = VCF(str(vcf_path))
-
     maf_bins = {
         "0-1%": 0,
         "1-5%": 0,
@@ -152,37 +148,36 @@ def compute_allele_frequency_dist(vcf_path: Path) -> Dict:
     singleton_count = 0
     total_variants = 0
 
-    for variant in vcf:
-        total_variants += 1
-        gt = variant.genotypes[0]
+    with closing(VCF(str(vcf_path))) as vcf:
+        for variant in vcf:
+            total_variants += 1
+            gt = variant.genotypes[0]
 
-        # Calculate AF from genotype (for single sample)
-        if gt[0] == -1 or gt[1] == -1:
-            continue  # Skip missing
+            # Calculate AF from genotype (for single sample)
+            if gt[0] == -1 or gt[1] == -1:
+                continue  # Skip missing
 
-        allele_count = gt[0] + gt[1]  # 0, 1, or 2
-        af = allele_count / 2.0  # AF for this sample
+            allele_count = gt[0] + gt[1]  # 0, 1, or 2
+            af = allele_count / 2.0  # AF for this sample
 
-        # Convert to MAF (minor allele frequency)
-        maf = min(af, 1 - af)
+            # Convert to MAF (minor allele frequency)
+            maf = min(af, 1 - af)
 
-        # Bin the MAF
-        if maf < 0.01:
-            maf_bins["0-1%"] += 1
-        elif maf < 0.05:
-            maf_bins["1-5%"] += 1
-        elif maf < 0.10:
-            maf_bins["5-10%"] += 1
-        elif maf < 0.25:
-            maf_bins["10-25%"] += 1
-        elif maf <= 0.50:
-            maf_bins["25-50%"] += 1
+            # Bin the MAF
+            if maf < 0.01:
+                maf_bins["0-1%"] += 1
+            elif maf < 0.05:
+                maf_bins["1-5%"] += 1
+            elif maf < 0.10:
+                maf_bins["5-10%"] += 1
+            elif maf < 0.25:
+                maf_bins["10-25%"] += 1
+            elif maf <= 0.50:
+                maf_bins["25-50%"] += 1
 
-        # Count singletons (heterozygous sites in single sample context)
-        if allele_count == 1:
-            singleton_count += 1
-
-    vcf.close()
+            # Count singletons (heterozygous sites in single sample context)
+            if allele_count == 1:
+                singleton_count += 1
 
     return {
         "maf_distribution": maf_bins,
@@ -201,8 +196,6 @@ def compute_format_consistency(vcf_path: Path, sample_name: str) -> Dict:
     - DP distribution
     - Missing value rates
     """
-    vcf = VCF(str(vcf_path))
-
     # Storage for validation
     af_values = []
     dp_values = []
@@ -218,7 +211,8 @@ def compute_format_consistency(vcf_path: Path, sample_name: str) -> Dict:
 
     total_variants = 0
 
-    for variant in vcf:
+    with closing(VCF(str(vcf_path))) as vcf:
+        for variant in vcf:
         total_variants += 1
 
         # Get genotype
@@ -288,8 +282,6 @@ def compute_format_consistency(vcf_path: Path, sample_name: str) -> Dict:
                     missing_ad += 1
         except (AttributeError, IndexError, KeyError, TypeError):
             missing_ad += 1
-
-    vcf.close()
 
     # Calculate statistics
     af_missing_rate = missing_af / total_variants if total_variants > 0 else 0
@@ -435,8 +427,8 @@ def create_summary_csv(metrics_list: List[Dict]):
         # Add FORMAT consistency metrics for somatic
         if m["cohort"] == "somatic" and "format_consistency" in m:
             fc = m["format_consistency"]
-            row["af_mean"] = f"{fc['af_stats']['mean']:.3f}" if fc['af_stats']['mean'] else "N/A"
-            row["dp_median"] = f"{fc['dp_stats']['median']:.0f}" if fc['dp_stats']['median'] else "N/A"
+            row["af_mean"] = f"{fc['af_stats']['mean']:.3f}" if fc['af_stats']['mean'] is not None else "N/A"
+            row["dp_median"] = f"{fc['dp_stats']['median']:.0f}" if fc['dp_stats']['median'] is not None else "N/A"
             row["af_gt_concordance"] = f"{fc['concordance']['af_gt_concordance_rate']:.3f}"
             row["ad_gt_concordance"] = f"{fc['concordance']['ad_gt_concordance_rate']:.3f}"
 

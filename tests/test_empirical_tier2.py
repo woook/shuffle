@@ -305,8 +305,10 @@ def test_p2_closest_donor_attack(fix: EmpiricalFixture) -> None:
     """
     P2 — Report closest-donor attack success rate (region mode).
 
-    Hard assertion: attack success rate < 100%.
-    Advisory warning emitted if rate exceeds 50% absolute.
+    Hard assertions (privacy thresholds, cause CI failure):
+    - attack_rate <= 0.50 (50% absolute threshold)
+    - ratio <= 10 (10× random baseline threshold)
+    - attack_rate < 1.0 (sanity check: not all synthetics match primary donor)
     """
     n_donors = N_DONORS
     attack_successes = 0
@@ -366,8 +368,10 @@ def test_p4_membership_inference(fix: EmpiricalFixture) -> None:
     """
     P4 — Report membership inference signal.
 
-    Hard assertion: mean delta is a finite float (computation completes).
-    Advisory warnings emitted when delta and Wilcoxon p-value exceed thresholds.
+    Hard assertions (privacy thresholds, cause CI failure):
+    - mean_delta <= 0.02 AND wilcoxon p >= 0.001 (alarming threshold)
+    - wilcoxon p >= 0.05 (concerning threshold)
+    - mean_delta is finite (computation sanity check)
     """
     in_max = fix.concordances.max(axis=1)       # (S,) — best match in pool
     out_max = fix.heldout_concs.max(axis=1)     # (S,) — best match in held-out

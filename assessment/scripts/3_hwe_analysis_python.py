@@ -2,8 +2,12 @@
 """
 Phase 2.3: Hardy-Weinberg Equilibrium (HWE) Analysis (Pure Python)
 
-Computes HWE exact test p-values per variant without requiring plink2.
-Uses scipy for statistical tests.
+Computes HWE chi-square test p-values per variant without requiring plink2.
+Uses scipy.stats.chi2 for statistical tests (approximation, not exact test).
+
+Note: This implementation uses chi-square approximation for computational efficiency.
+For low-count sites or comparison with exact HWE tests (e.g., plink2/Fisher's exact),
+results may differ.
 """
 
 import json
@@ -38,7 +42,10 @@ def hwe_chisq_test(obs_hom_ref: int, obs_het: int, obs_hom_alt: int) -> float:
     """
     Compute HWE chi-square test p-value.
 
-    Uses chi-square approximation (faster than exact test for large samples).
+    Uses chi-square approximation with scipy.stats.chi2 (df=1).
+    This is NOT an exact test (Fisher's exact HWE). For sites with low expected counts
+    (< 5), returns 1.0 (cannot test reliably). Results may differ from exact tests
+    used by plink/plink2.
     """
     n = obs_hom_ref + obs_het + obs_hom_alt
     if n == 0:

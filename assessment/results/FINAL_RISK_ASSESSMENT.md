@@ -143,7 +143,7 @@ Somatic VCFs carry GT:AF:DP:AD fields from donor segments.
 
 **Somatic Cohort**:
 
-- Donor pool size: N/A
+- Donor pool size: 168
 - Region sampling: ENABLED
 - Min donors: 1
 - Average segments per chromosome: 1.7-3.9
@@ -152,7 +152,7 @@ Somatic VCFs carry GT:AF:DP:AD fields from donor segments.
 
 **Germline Cohort**:
 
-- Donor pool size: N/A
+- Donor pool size: 138
 - Region sampling: ENABLED
 - Min donors: 1
 - FORMAT fields: GT only
@@ -225,7 +225,7 @@ Somatic VCFs carry GT:AF:DP:AD fields from donor segments.
 ## 5. Final Recommendation
 
 
-### ✓ **APPROVED**
+### ✓ **APPROVED** (within assessed scope)
 
 
 **Rationale**:
@@ -235,6 +235,8 @@ Somatic VCFs carry GT:AF:DP:AD fields from donor segments.
 - Region-sampling mode provides strong protection against P2 attacks
 - NHS threat model: No adversary access to original donor genotypes
 - Theoretical re-identification risk: LOW for both cohorts
+
+**Scope qualifier**: This approval applies to the threat model and validation surface described in Section 4 (Limitations). Direct validation of P2/P4 attacks was not performed (requires original donor VCFs), and population structure analysis (PCA/IBS) remains incomplete. The assessment is based on configuration analysis, biological plausibility metrics, and theoretical risk modeling.
 
 
 ### Recommended Controls

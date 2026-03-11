@@ -1,0 +1,2288 @@
+[
+  {
+    "sample_id": 2,
+    "sample_name": "somatic_synthetic_2",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_2.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 103072,
+      "0/1": 5517
+    },
+    "heterozygosity_rate": 0.050806251093573014,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 103072,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5517
+      },
+      "singleton_count": 5517,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_2",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 19114,
+        "missing_count": 89475,
+        "missing_rate": 0.8239784876921236,
+        "mean": 0.11556915193796158,
+        "median": 0.0,
+        "std": 0.24976995587348938
+      },
+      "dp_stats": {
+        "values_count": 13714,
+        "missing_count": 94875,
+        "missing_rate": 0.8737072815846909,
+        "mean": 834.6484614262797,
+        "median": 400.0,
+        "q25": 185.0,
+        "q75": 1150.0
+      },
+      "ad_stats": {
+        "missing_count": 78012,
+        "missing_rate": 0.7184153091012901
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7196295908757978,
+        "af_gt_concordant_count": 13755,
+        "af_gt_discordant_count": 5359,
+        "ad_gt_concordance_rate": 0.6291381070438967,
+        "ad_gt_concordant_count": 8628,
+        "ad_gt_discordant_count": 5086
+      }
+    }
+  },
+  {
+    "sample_id": 11,
+    "sample_name": "somatic_synthetic_11",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_11.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102728,
+      "0/1": 5861
+    },
+    "heterozygosity_rate": 0.05397415944524768,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102728,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5861
+      },
+      "singleton_count": 5861,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_11",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 22920,
+        "missing_count": 85669,
+        "missing_rate": 0.7889288970337696,
+        "mean": 0.09498201310634613,
+        "median": 0.0,
+        "std": 0.2282886952161789
+      },
+      "dp_stats": {
+        "values_count": 13843,
+        "missing_count": 94746,
+        "missing_rate": 0.8725193159528128,
+        "mean": 837.314310481832,
+        "median": 407.0,
+        "q25": 204.0,
+        "q75": 1139.0
+      },
+      "ad_stats": {
+        "missing_count": 77694,
+        "missing_rate": 0.7154868356831723
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7518760907504363,
+        "af_gt_concordant_count": 17233,
+        "af_gt_discordant_count": 5687,
+        "ad_gt_concordance_rate": 0.6097666690746225,
+        "ad_gt_concordant_count": 8441,
+        "ad_gt_discordant_count": 5402
+      }
+    }
+  },
+  {
+    "sample_id": 13,
+    "sample_name": "somatic_synthetic_13",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_13.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102869,
+      "0/1": 5720
+    },
+    "heterozygosity_rate": 0.052675685382497305,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102869,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5720
+      },
+      "singleton_count": 5720,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_13",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 20389,
+        "missing_count": 88200,
+        "missing_rate": 0.812236966911934,
+        "mean": 0.10658615082502365,
+        "median": 0.0,
+        "std": 0.23867692053318024
+      },
+      "dp_stats": {
+        "values_count": 13717,
+        "missing_count": 94872,
+        "missing_rate": 0.8736796544769728,
+        "mean": 775.8688488736605,
+        "median": 369.0,
+        "q25": 194.0,
+        "q75": 1031.0
+      },
+      "ad_stats": {
+        "missing_count": 77794,
+        "missing_rate": 0.7164077392737754
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7308352543037913,
+        "af_gt_concordant_count": 14901,
+        "af_gt_discordant_count": 5488,
+        "ad_gt_concordance_rate": 0.6203251439819203,
+        "ad_gt_concordant_count": 8509,
+        "ad_gt_discordant_count": 5208
+      }
+    }
+  },
+  {
+    "sample_id": 18,
+    "sample_name": "somatic_synthetic_18",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_18.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102634,
+      "0/1": 5955
+    },
+    "heterozygosity_rate": 0.054839808820414594,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102634,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5955
+      },
+      "singleton_count": 5955,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_18",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 19089,
+        "missing_count": 89500,
+        "missing_rate": 0.8242087135897743,
+        "mean": 0.11721113324165344,
+        "median": 0.0,
+        "std": 0.2523496747016907
+      },
+      "dp_stats": {
+        "values_count": 14123,
+        "missing_count": 94466,
+        "missing_rate": 0.8699407858991243,
+        "mean": 831.304821921688,
+        "median": 431.0,
+        "q25": 201.0,
+        "q75": 1091.0
+      },
+      "ad_stats": {
+        "missing_count": 77645,
+        "missing_rate": 0.7150355929237768
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.6982031536486982,
+        "af_gt_concordant_count": 13328,
+        "af_gt_discordant_count": 5761,
+        "ad_gt_concordance_rate": 0.610847553635913,
+        "ad_gt_concordant_count": 8627,
+        "ad_gt_discordant_count": 5496
+      }
+    }
+  },
+  {
+    "sample_id": 38,
+    "sample_name": "somatic_synthetic_38",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_38.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102892,
+      "0/1": 5697
+    },
+    "heterozygosity_rate": 0.05246387755665859,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102892,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5697
+      },
+      "singleton_count": 5697,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_38",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 21742,
+        "missing_count": 86847,
+        "missing_rate": 0.799777141331074,
+        "mean": 0.09949465841054916,
+        "median": 0.0,
+        "std": 0.23900344967842102
+      },
+      "dp_stats": {
+        "values_count": 13253,
+        "missing_count": 95336,
+        "missing_rate": 0.8779526471373712,
+        "mean": 837.8730853391685,
+        "median": 428.0,
+        "q25": 185.0,
+        "q75": 1099.0
+      },
+      "ad_stats": {
+        "missing_count": 77866,
+        "missing_rate": 0.7170707898590096
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7437218287186091,
+        "af_gt_concordant_count": 16170,
+        "af_gt_discordant_count": 5572,
+        "ad_gt_concordance_rate": 0.5947332679393345,
+        "ad_gt_concordant_count": 7882,
+        "ad_gt_discordant_count": 5371
+      }
+    }
+  },
+  {
+    "sample_id": 42,
+    "sample_name": "somatic_synthetic_42",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_42.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 103478,
+      "0/1": 5111
+    },
+    "heterozygosity_rate": 0.047067382515724426,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 103478,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5111
+      },
+      "singleton_count": 5111,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_42",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 21261,
+        "missing_count": 87328,
+        "missing_rate": 0.804206687601875,
+        "mean": 0.09648862481117249,
+        "median": 0.0,
+        "std": 0.23167766630649567
+      },
+      "dp_stats": {
+        "values_count": 12523,
+        "missing_count": 96066,
+        "missing_rate": 0.8846752433487738,
+        "mean": 796.2924219436237,
+        "median": 404.0,
+        "q25": 184.0,
+        "q75": 1080.0
+      },
+      "ad_stats": {
+        "missing_count": 78360,
+        "missing_rate": 0.721620053596589
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7659564460749729,
+        "af_gt_concordant_count": 16285,
+        "af_gt_discordant_count": 4976,
+        "ad_gt_concordance_rate": 0.6225345364529267,
+        "ad_gt_concordant_count": 7796,
+        "ad_gt_discordant_count": 4727
+      }
+    }
+  },
+  {
+    "sample_id": 44,
+    "sample_name": "somatic_synthetic_44",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_44.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102630,
+      "0/1": 5959
+    },
+    "heterozygosity_rate": 0.05487664496403871,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102630,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5959
+      },
+      "singleton_count": 5959,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_44",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 18484,
+        "missing_count": 90105,
+        "missing_rate": 0.829780180312923,
+        "mean": 0.11683768033981323,
+        "median": 0.0,
+        "std": 0.24925442039966583
+      },
+      "dp_stats": {
+        "values_count": 14218,
+        "missing_count": 94371,
+        "missing_rate": 0.8690659274880512,
+        "mean": 817.8004642003094,
+        "median": 427.0,
+        "q25": 199.0,
+        "q75": 1124.0
+      },
+      "ad_stats": {
+        "missing_count": 77616,
+        "missing_rate": 0.7147685308825019
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.6907054750054101,
+        "af_gt_concordant_count": 12767,
+        "af_gt_discordant_count": 5717,
+        "ad_gt_concordance_rate": 0.6088057392038262,
+        "ad_gt_concordant_count": 8656,
+        "ad_gt_discordant_count": 5562
+      }
+    }
+  },
+  {
+    "sample_id": 49,
+    "sample_name": "somatic_synthetic_49",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_49.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102980,
+      "0/1": 5609
+    },
+    "heterozygosity_rate": 0.051653482396927866,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102980,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5609
+      },
+      "singleton_count": 5609,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_49",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 20004,
+        "missing_count": 88585,
+        "missing_rate": 0.815782445735756,
+        "mean": 0.11401894688606262,
+        "median": 0.0,
+        "std": 0.2530743181705475
+      },
+      "dp_stats": {
+        "values_count": 13135,
+        "missing_count": 95454,
+        "missing_rate": 0.8790393133742829,
+        "mean": 803.6354777312524,
+        "median": 420.0,
+        "q25": 191.0,
+        "q75": 1077.0
+      },
+      "ad_stats": {
+        "missing_count": 77944,
+        "missing_rate": 0.7177890946596801
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7241551689662068,
+        "af_gt_concordant_count": 14486,
+        "af_gt_discordant_count": 5518,
+        "ad_gt_concordance_rate": 0.6026646364674534,
+        "ad_gt_concordant_count": 7916,
+        "ad_gt_discordant_count": 5219
+      }
+    }
+  },
+  {
+    "sample_id": 52,
+    "sample_name": "somatic_synthetic_52",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_52.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102852,
+      "0/1": 5737
+    },
+    "heterozygosity_rate": 0.052832238992899835,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102852,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5737
+      },
+      "singleton_count": 5737,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_52",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 18310,
+        "missing_count": 90279,
+        "missing_rate": 0.8313825525605725,
+        "mean": 0.12192367017269135,
+        "median": 0.0,
+        "std": 0.2531541883945465
+      },
+      "dp_stats": {
+        "values_count": 14120,
+        "missing_count": 94469,
+        "missing_rate": 0.8699684130068424,
+        "mean": 826.2451133144476,
+        "median": 399.0,
+        "q25": 193.0,
+        "q75": 1087.0
+      },
+      "ad_stats": {
+        "missing_count": 77804,
+        "missing_rate": 0.7164998296328358
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7027853631895139,
+        "af_gt_concordant_count": 12868,
+        "af_gt_discordant_count": 5442,
+        "ad_gt_concordance_rate": 0.6305949008498584,
+        "ad_gt_concordant_count": 8904,
+        "ad_gt_discordant_count": 5216
+      }
+    }
+  },
+  {
+    "sample_id": 74,
+    "sample_name": "somatic_synthetic_74",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_74.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102691,
+      "0/1": 5898
+    },
+    "heterozygosity_rate": 0.05431489377377082,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102691,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5898
+      },
+      "singleton_count": 5898,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_74",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 18472,
+        "missing_count": 90117,
+        "missing_rate": 0.8298906887437955,
+        "mean": 0.10845788568258286,
+        "median": 0.0,
+        "std": 0.2411796897649765
+      },
+      "dp_stats": {
+        "values_count": 13499,
+        "missing_count": 95090,
+        "missing_rate": 0.8756872243044875,
+        "mean": 763.44529224387,
+        "median": 385.0,
+        "q25": 184.0,
+        "q75": 1028.5
+      },
+      "ad_stats": {
+        "missing_count": 77689,
+        "missing_rate": 0.7154407905036422
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.6874729320051971,
+        "af_gt_concordant_count": 12699,
+        "af_gt_discordant_count": 5773,
+        "ad_gt_concordance_rate": 0.5906363434328469,
+        "ad_gt_concordant_count": 7973,
+        "ad_gt_discordant_count": 5526
+      }
+    }
+  },
+  {
+    "sample_id": 78,
+    "sample_name": "somatic_synthetic_78",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_78.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102779,
+      "0/1": 5810
+    },
+    "heterozygosity_rate": 0.053504498614040094,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102779,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5810
+      },
+      "singleton_count": 5810,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_78",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 19756,
+        "missing_count": 88833,
+        "missing_rate": 0.8180662866404516,
+        "mean": 0.10729014128446579,
+        "median": 0.0,
+        "std": 0.24172024428844452
+      },
+      "dp_stats": {
+        "values_count": 13317,
+        "missing_count": 95272,
+        "missing_rate": 0.8773632688393852,
+        "mean": 834.8468874371105,
+        "median": 406.0,
+        "q25": 189.0,
+        "q75": 1155.0
+      },
+      "ad_stats": {
+        "missing_count": 77792,
+        "missing_rate": 0.7163893212019634
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7078862117837619,
+        "af_gt_concordant_count": 13985,
+        "af_gt_discordant_count": 5771,
+        "ad_gt_concordance_rate": 0.5927010587970264,
+        "ad_gt_concordant_count": 7893,
+        "ad_gt_discordant_count": 5424
+      }
+    }
+  },
+  {
+    "sample_id": 113,
+    "sample_name": "somatic_synthetic_113",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_113.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102903,
+      "0/1": 5686
+    },
+    "heterozygosity_rate": 0.05236257816169225,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102903,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5686
+      },
+      "singleton_count": 5686,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_113",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 21367,
+        "missing_count": 87222,
+        "missing_rate": 0.8032305297958356,
+        "mean": 0.10211622714996338,
+        "median": 0.0,
+        "std": 0.23735837638378143
+      },
+      "dp_stats": {
+        "values_count": 13608,
+        "missing_count": 94981,
+        "missing_rate": 0.8746834393907302,
+        "mean": 850.7652116402116,
+        "median": 428.0,
+        "q25": 192.0,
+        "q75": 1148.25
+      },
+      "ad_stats": {
+        "missing_count": 77862,
+        "missing_rate": 0.7170339537153856
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7449337763841438,
+        "af_gt_concordant_count": 15917,
+        "af_gt_discordant_count": 5450,
+        "ad_gt_concordance_rate": 0.6190476190476191,
+        "ad_gt_concordant_count": 8424,
+        "ad_gt_discordant_count": 5184
+      }
+    }
+  },
+  {
+    "sample_id": 136,
+    "sample_name": "somatic_synthetic_136",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_136.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102522,
+      "0/1": 6067
+    },
+    "heterozygosity_rate": 0.055871220841890064,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102522,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 6067
+      },
+      "singleton_count": 6067,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_136",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 18895,
+        "missing_count": 89694,
+        "missing_rate": 0.8259952665555443,
+        "mean": 0.11063806712627411,
+        "median": 0.0,
+        "std": 0.24279603362083435
+      },
+      "dp_stats": {
+        "values_count": 13522,
+        "missing_count": 95067,
+        "missing_rate": 0.8754754164786489,
+        "mean": 865.7347285904452,
+        "median": 440.0,
+        "q25": 198.0,
+        "q75": 1157.0
+      },
+      "ad_stats": {
+        "missing_count": 77476,
+        "missing_rate": 0.7134792658556576
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.6945223604128076,
+        "af_gt_concordant_count": 13123,
+        "af_gt_discordant_count": 5772,
+        "ad_gt_concordance_rate": 0.5877089187989942,
+        "ad_gt_concordant_count": 7947,
+        "ad_gt_discordant_count": 5575
+      }
+    }
+  },
+  {
+    "sample_id": 141,
+    "sample_name": "somatic_synthetic_141",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_141.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102726,
+      "0/1": 5863
+    },
+    "heterozygosity_rate": 0.05399257751705974,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102726,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5863
+      },
+      "singleton_count": 5863,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_141",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 18309,
+        "missing_count": 90280,
+        "missing_rate": 0.8313917615964784,
+        "mean": 0.1130589097738266,
+        "median": 0.0,
+        "std": 0.2517109215259552
+      },
+      "dp_stats": {
+        "values_count": 13274,
+        "missing_count": 95315,
+        "missing_rate": 0.8777592573833445,
+        "mean": 749.3341871327407,
+        "median": 394.0,
+        "q25": 185.0,
+        "q75": 965.0
+      },
+      "ad_stats": {
+        "missing_count": 77689,
+        "missing_rate": 0.7154407905036422
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.6870937790157846,
+        "af_gt_concordant_count": 12580,
+        "af_gt_discordant_count": 5729,
+        "ad_gt_concordance_rate": 0.5826427602832606,
+        "ad_gt_concordant_count": 7734,
+        "ad_gt_discordant_count": 5540
+      }
+    }
+  },
+  {
+    "sample_id": 146,
+    "sample_name": "somatic_synthetic_146",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_146.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102722,
+      "0/1": 5867
+    },
+    "heterozygosity_rate": 0.05402941366068386,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102722,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5867
+      },
+      "singleton_count": 5867,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_146",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 19184,
+        "missing_count": 89405,
+        "missing_rate": 0.8233338551787014,
+        "mean": 0.10948963463306427,
+        "median": 0.0,
+        "std": 0.2409992814064026
+      },
+      "dp_stats": {
+        "values_count": 13685,
+        "missing_count": 94904,
+        "missing_rate": 0.8739743436259658,
+        "mean": 809.20935330654,
+        "median": 391.0,
+        "q25": 195.0,
+        "q75": 1046.0
+      },
+      "ad_stats": {
+        "missing_count": 77733,
+        "missing_rate": 0.7158459880835075
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7067869057547956,
+        "af_gt_concordant_count": 13559,
+        "af_gt_discordant_count": 5625,
+        "ad_gt_concordance_rate": 0.6087687248812569,
+        "ad_gt_concordant_count": 8331,
+        "ad_gt_discordant_count": 5354
+      }
+    }
+  },
+  {
+    "sample_id": 147,
+    "sample_name": "somatic_synthetic_147",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_147.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 102929,
+      "0/1": 5660
+    },
+    "heterozygosity_rate": 0.052123143228135445,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 102929,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5660
+      },
+      "singleton_count": 5660,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_147",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 19716,
+        "missing_count": 88873,
+        "missing_rate": 0.8184346480766929,
+        "mean": 0.1095070019364357,
+        "median": 0.0,
+        "std": 0.24312956631183624
+      },
+      "dp_stats": {
+        "values_count": 13697,
+        "missing_count": 94892,
+        "missing_rate": 0.8738638351950935,
+        "mean": 842.5820982696941,
+        "median": 417.0,
+        "q25": 184.0,
+        "q75": 1140.0
+      },
+      "ad_stats": {
+        "missing_count": 77923,
+        "missing_rate": 0.7175957049056534
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7140393588963279,
+        "af_gt_concordant_count": 14078,
+        "af_gt_discordant_count": 5638,
+        "ad_gt_concordance_rate": 0.6131999707965248,
+        "ad_gt_concordant_count": 8399,
+        "ad_gt_discordant_count": 5298
+      }
+    }
+  },
+  {
+    "sample_id": 149,
+    "sample_name": "somatic_synthetic_149",
+    "cohort": "somatic",
+    "vcf_path": "<SOMATIC_VCF_DIR>/synthetic_149.vcf.gz",
+    "total_variants": 108589,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 103067,
+      "0/1": 5522
+    },
+    "heterozygosity_rate": 0.05085229627310317,
+    "ti_count": 31374,
+    "tv_count": 21943,
+    "ti_tv_ratio": 1.4297953789363351,
+    "variants_per_chromosome": {
+      "1": 9262,
+      "2": 6006,
+      "3": 3974,
+      "4": 3331,
+      "5": 4156,
+      "6": 3873,
+      "7": 9092,
+      "8": 2446,
+      "9": 4522,
+      "10": 4654,
+      "11": 6338,
+      "12": 5970,
+      "13": 2683,
+      "14": 2155,
+      "15": 2613,
+      "16": 7068,
+      "17": 8020,
+      "18": 2017,
+      "19": 3557,
+      "20": 4106,
+      "21": 2797,
+      "22": 3198,
+      "X": 6751
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 103067,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 5522
+      },
+      "singleton_count": 5522,
+      "total_variants": 108589
+    },
+    "format_consistency": {
+      "sample_name": "somatic_synthetic_149",
+      "format_fields_checked": [
+        "AF",
+        "DP",
+        "AD"
+      ],
+      "af_stats": {
+        "values_count": 18978,
+        "missing_count": 89611,
+        "missing_rate": 0.8252309165753438,
+        "mean": 0.10883971303701401,
+        "median": 0.0,
+        "std": 0.244914710521698
+      },
+      "dp_stats": {
+        "values_count": 13088,
+        "missing_count": 95501,
+        "missing_rate": 0.8794721380618663,
+        "mean": 757.4551497555012,
+        "median": 382.0,
+        "q25": 183.0,
+        "q75": 938.0
+      },
+      "ad_stats": {
+        "missing_count": 78124,
+        "missing_rate": 0.7194467211227656
+      },
+      "concordance": {
+        "af_gt_concordance_rate": 0.7065549583728528,
+        "af_gt_concordant_count": 13409,
+        "af_gt_discordant_count": 5569,
+        "ad_gt_concordance_rate": 0.5987163814180929,
+        "ad_gt_concordant_count": 7836,
+        "ad_gt_discordant_count": 5252
+      }
+    }
+  },
+  {
+    "sample_id": 18,
+    "sample_name": "germline_synthetic_18",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_18.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 920191,
+      "0/1": 102629,
+      "1/1": 49664
+    },
+    "heterozygosity_rate": 0.09569280287631331,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 969855,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 102629
+      },
+      "singleton_count": 102629,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 19,
+    "sample_name": "germline_synthetic_19",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_19.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 925235,
+      "0/1": 98525,
+      "1/1": 48724
+    },
+    "heterozygosity_rate": 0.09186617236247814,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 973959,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 98525
+      },
+      "singleton_count": 98525,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 23,
+    "sample_name": "germline_synthetic_23",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_23.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 921027,
+      "1/1": 50232,
+      "0/1": 101225
+    },
+    "heterozygosity_rate": 0.0943836924373697,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 971259,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 101225
+      },
+      "singleton_count": 101225,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 36,
+    "sample_name": "germline_synthetic_36",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_36.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 922055,
+      "1/1": 50722,
+      "0/1": 99707
+    },
+    "heterozygosity_rate": 0.09296828670637511,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 972777,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 99707
+      },
+      "singleton_count": 99707,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 38,
+    "sample_name": "germline_synthetic_38",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_38.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 923281,
+      "1/1": 48278,
+      "0/1": 100925
+    },
+    "heterozygosity_rate": 0.09410396798460396,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 971559,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 100925
+      },
+      "singleton_count": 100925,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 44,
+    "sample_name": "germline_synthetic_44",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_44.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 917577,
+      "0/1": 105879,
+      "1/1": 49028
+    },
+    "heterozygosity_rate": 0.0987231511146087,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 966605,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 105879
+      },
+      "singleton_count": 105879,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 52,
+    "sample_name": "germline_synthetic_52",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_52.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 925029,
+      "1/1": 48671,
+      "0/1": 98784
+    },
+    "heterozygosity_rate": 0.09210766780669921,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 973700,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 98784
+      },
+      "singleton_count": 98784,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 63,
+    "sample_name": "germline_synthetic_63",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_63.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 923819,
+      "0/1": 99131,
+      "1/1": 49534
+    },
+    "heterozygosity_rate": 0.09243121575706491,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 973353,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 99131
+      },
+      "singleton_count": 99131,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 64,
+    "sample_name": "germline_synthetic_64",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_64.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 921941,
+      "1/1": 50181,
+      "0/1": 100362
+    },
+    "heterozygosity_rate": 0.09357901842824695,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 972122,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 100362
+      },
+      "singleton_count": 100362,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 81,
+    "sample_name": "germline_synthetic_81",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_81.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 925790,
+      "0/1": 98043,
+      "1/1": 48651
+    },
+    "heterozygosity_rate": 0.09141674840836786,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 974441,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 98043
+      },
+      "singleton_count": 98043,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 87,
+    "sample_name": "germline_synthetic_87",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_87.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 925042,
+      "0/1": 98661,
+      "1/1": 48781
+    },
+    "heterozygosity_rate": 0.09199298078106527,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 973823,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 98661
+      },
+      "singleton_count": 98661,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 101,
+    "sample_name": "germline_synthetic_101",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_101.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 921555,
+      "0/1": 101703,
+      "1/1": 49226
+    },
+    "heterozygosity_rate": 0.09482938673210976,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 970781,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 101703
+      },
+      "singleton_count": 101703,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 123,
+    "sample_name": "germline_synthetic_123",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_123.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 923510,
+      "0/1": 98637,
+      "1/1": 50337
+    },
+    "heterozygosity_rate": 0.09197060282484401,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 973847,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 98637
+      },
+      "singleton_count": 98637,
+      "total_variants": 1072484
+    }
+  },
+  {
+    "sample_id": 124,
+    "sample_name": "germline_synthetic_124",
+    "cohort": "germline",
+    "vcf_path": "<GERMLINE_VCF_DIR>/synthetic_124.vcf.gz",
+    "total_variants": 1072484,
+    "missing_count": 0,
+    "missing_rate": 0.0,
+    "genotype_counts": {
+      "0/0": 922451,
+      "0/1": 99966,
+      "1/1": 50067
+    },
+    "heterozygosity_rate": 0.09320978215059618,
+    "ti_count": 622613,
+    "tv_count": 282689,
+    "ti_tv_ratio": 2.202466314571844,
+    "variants_per_chromosome": {
+      "1": 103247,
+      "2": 73506,
+      "3": 57303,
+      "4": 44592,
+      "5": 45479,
+      "6": 58620,
+      "7": 59315,
+      "8": 37119,
+      "9": 47070,
+      "10": 45135,
+      "11": 56561,
+      "12": 54202,
+      "13": 22133,
+      "14": 35550,
+      "15": 41741,
+      "16": 48883,
+      "17": 56580,
+      "18": 17882,
+      "19": 72538,
+      "20": 26697,
+      "21": 14862,
+      "22": 28976,
+      "X": 24493
+    },
+    "allele_frequency": {
+      "maf_distribution": {
+        "0-1%": 972518,
+        "1-5%": 0,
+        "5-10%": 0,
+        "10-25%": 0,
+        "25-50%": 99966
+      },
+      "singleton_count": 99966,
+      "total_variants": 1072484
+    }
+  }
+]

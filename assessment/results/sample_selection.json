@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "description": "10% sample selection for anonymisation assessment",
+    "random_seed": 42,
+    "selection_date": "2026-03-11"
+  },
+  "somatic": {
+    "cohort_name": "h_somatic",
+    "total_samples": 168,
+    "selected_count": 17,
+    "selected_ids": [
+      2,
+      11,
+      13,
+      18,
+      38,
+      42,
+      44,
+      49,
+      52,
+      74,
+      78,
+      113,
+      136,
+      141,
+      146,
+      147,
+      149
+    ],
+    "vcf_directory": "<SOMATIC_VCF_DIR>",
+    "verification": {
+      "2": true,
+      "11": true,
+      "13": true,
+      "18": true,
+      "38": true,
+      "42": true,
+      "44": true,
+      "49": true,
+      "52": true,
+      "74": true,
+      "78": true,
+      "113": true,
+      "136": true,
+      "141": true,
+      "146": true,
+      "147": true,
+      "149": true
+    }
+  },
+  "germline": {
+    "cohort_name": "w_germline",
+    "total_samples": 138,
+    "selected_count": 14,
+    "selected_ids": [
+      18,
+      19,
+      23,
+      36,
+      38,
+      44,
+      52,
+      63,
+      64,
+      81,
+      87,
+      101,
+      123,
+      124
+    ],
+    "vcf_directory": "<GERMLINE_VCF_DIR>",
+    "verification": {
+      "18": true,
+      "19": true,
+      "23": true,
+      "36": true,
+      "38": true,
+      "44": true,
+      "52": true,
+      "63": true,
+      "64": true,
+      "81": true,
+      "87": true,
+      "101": true,
+      "123": true,
+      "124": true
+    }
+  },
+  "total_selected": 31
+}

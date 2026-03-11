@@ -1,0 +1,30 @@
+{
+  "somatic": {
+    "cohort": "somatic",
+    "total_sites": 104414,
+    "violations_p001": 905,
+    "violations_p0001": 533,
+    "violations_p1e5": 0,
+    "violation_rate_p001": 0.008667420077767348,
+    "violation_rate_p0001": 0.005104679449116019,
+    "violation_rate_p1e5": 0.0,
+    "p_value_mean": 0.9398354787939381,
+    "p_value_median": 1.0,
+    "p_value_min": 3.7379818401683806e-05,
+    "p_value_max": 1.0
+  },
+  "germline": {
+    "cohort": "germline",
+    "total_sites": 1066578,
+    "violations_p001": 9299,
+    "violations_p0001": 39,
+    "violations_p1e5": 20,
+    "violation_rate_p001": 0.008718537228407111,
+    "violation_rate_p0001": 3.6565539510471806e-05,
+    "violation_rate_p1e5": 1.8751558723318876e-05,
+    "p_value_mean": 0.8710168580132551,
+    "p_value_median": 1.0,
+    "p_value_min": 1.2131545079618888e-07,
+    "p_value_max": 1.0
+  }
+}

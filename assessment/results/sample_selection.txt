@@ -1,0 +1,37 @@
+ANONYMISATION ASSESSMENT - SELECTED SAMPLES
+================================================================================
+
+SOMATIC COHORT (h/s) - 17 samples:
+  synthetic_2.vcf.gz
+  synthetic_11.vcf.gz
+  synthetic_13.vcf.gz
+  synthetic_18.vcf.gz
+  synthetic_38.vcf.gz
+  synthetic_42.vcf.gz
+  synthetic_44.vcf.gz
+  synthetic_49.vcf.gz
+  synthetic_52.vcf.gz
+  synthetic_74.vcf.gz
+  synthetic_78.vcf.gz
+  synthetic_113.vcf.gz
+  synthetic_136.vcf.gz
+  synthetic_141.vcf.gz
+  synthetic_146.vcf.gz
+  synthetic_147.vcf.gz
+  synthetic_149.vcf.gz
+
+GERMLINE COHORT (w) - 14 samples:
+  synthetic_18.vcf.gz
+  synthetic_19.vcf.gz
+  synthetic_23.vcf.gz
+  synthetic_36.vcf.gz
+  synthetic_38.vcf.gz
+  synthetic_44.vcf.gz
+  synthetic_52.vcf.gz
+  synthetic_63.vcf.gz
+  synthetic_64.vcf.gz
+  synthetic_81.vcf.gz
+  synthetic_87.vcf.gz
+  synthetic_101.vcf.gz
+  synthetic_123.vcf.gz
+  synthetic_124.vcf.gz

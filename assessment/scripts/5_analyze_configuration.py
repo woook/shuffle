@@ -94,7 +94,7 @@ def analyze_cohort_logs(log_dir: Path, cohort_name: str) -> Dict:
             configs.append(config)
 
     if not configs:
-        print(f"  WARNING: Could not parse any log files")
+        print("  WARNING: Could not parse any log files")
         return {"error": "parsing failed"}
 
     # Aggregate configuration

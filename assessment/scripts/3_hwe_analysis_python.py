@@ -80,7 +80,7 @@ def analyze_vcf_hwe(vcf_paths: List[Path], cohort_name: str) -> Dict:
     For each variant position, aggregate genotypes across samples
     and compute HWE p-value.
     """
-    print(f"  Loading VCFs and computing HWE...")
+    print("  Loading VCFs and computing HWE...")
 
     # Store genotypes by position
     variant_genotypes = {}
@@ -112,7 +112,7 @@ def analyze_vcf_hwe(vcf_paths: List[Path], cohort_name: str) -> Dict:
     p_values = []
     sites_tested = 0
 
-    for pos_key, gts in variant_genotypes.items():
+    for _, gts in variant_genotypes.items():
         n_samples = gts["hom_ref"] + gts["het"] + gts["hom_alt"]
 
         # Only test variants with sufficient samples

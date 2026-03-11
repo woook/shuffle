@@ -24,15 +24,6 @@ TOTAL_GERMLINE = 138
 SOMATIC_SAMPLE_SIZE = 17  # 10% of 168
 GERMLINE_SAMPLE_SIZE = 14  # 10% of 138
 
-def get_available_samples(vcf_dir: Path) -> List[int]:
-    """Get list of available sample IDs from VCF directory."""
-    sample_ids = []
-    for vcf_file in sorted(vcf_dir.glob("synthetic_*.vcf.gz")):
-        # Extract sample ID from filename (e.g., synthetic_42.vcf.gz -> 42)
-        sample_id = int(vcf_file.stem.replace("synthetic_", ""))
-        sample_ids.append(sample_id)
-    return sorted(sample_ids)
-
 
 def random_sample_selection(total_samples: int, sample_size: int,
                             name: str) -> List[int]:

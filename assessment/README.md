@@ -7,11 +7,13 @@
 
 This directory contains a comprehensive anonymisation quality assessment of synthetic VCF files generated using the shuffle tool. The assessment evaluated 31 samples (10% of two cohorts) and found:
 
-### ✓ **APPROVED FOR NHS CLINICAL USE**
+### ✓ **APPROVED FOR NHS CLINICAL USE** (within assessed scope)
 
 - **Biological Plausibility**: PASS (HWE compliance, normal het rates, expected Ti/Tv)
 - **Technical Quality**: PASS (FORMAT field consistency maintained)
 - **Theoretical Risk**: LOW (region-sampling mode, no donor access)
+
+> **Scope**: This approval applies to the threat model and validation surface described below. See [Limitations](#limitations) for constraints on this assessment.
 
 See `results/FINAL_RISK_ASSESSMENT.md` for the complete report.
 

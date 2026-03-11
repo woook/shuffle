@@ -1,13 +1,13 @@
 # Shuffle Anonymisation Quality Assessment
 
 **Date**: 2026-03-11
-**Assessment Type**: Synthetic VCF Validation for NHS Clinical Use
+**Assessment Type**: Synthetic VCF Validation
 
 ## Executive Summary
 
 This directory contains a comprehensive anonymisation quality assessment of synthetic VCF files generated using the shuffle tool. The assessment evaluated 31 samples (10% of two cohorts) and found:
 
-### ✓ **APPROVED FOR NHS CLINICAL USE** (within assessed scope)
+### ✓ **APPROVED** (within assessed scope)
 
 - **Biological Plausibility**: PASS (HWE compliance, normal het rates, expected Ti/Tv)
 - **Technical Quality**: PASS (FORMAT field consistency maintained)
@@ -223,16 +223,12 @@ python scripts/6_generate_final_report.py
 
 ---
 
-## Contact & Support
+## Detailed results
 
-For questions about this assessment:
+For more details about this assessment:
 - Review the detailed report: `results/FINAL_RISK_ASSESSMENT.md`
 - Check metric definitions in Appendix
 - Examine individual sample metrics: `results/metrics/per_sample_metrics.json`
-
-For shuffle tool issues:
-- GitHub: https://github.com/woook/shuffle
-- Local repo: Project root directory
 
 ---
 

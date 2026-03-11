@@ -225,7 +225,7 @@ Somatic VCFs carry GT:AF:DP:AD fields from donor segments.
 ## 5. Final Recommendation
 
 
-### ✓ **APPROVED FOR NHS CLINICAL USE**
+### ✓ **APPROVED**
 
 
 **Rationale**:

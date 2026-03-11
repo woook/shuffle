@@ -159,7 +159,8 @@ class SyntheticVCFWriter:
             Synthetic dosage matrix from mosaic_builder.build_synthetic_genotypes.
         synthetic_fields : dict[str, np.ndarray] or None
             Optional additional FORMAT fields to write alongside GT.  Each value
-            must have shape ``(n_variants, n_synthetic_samples)``, dtype float32.
+            must have shape ``(n_variants, n_synthetic_samples)``, dtype object
+            (VCF-ready strings as produced by ``build_synthetic_genotypes``).
             Keys are written in iteration order, e.g. ``{"AF": ..., "DP": ...}``
             produces a FORMAT column of ``GT:AF:DP``.
         """
@@ -171,6 +172,12 @@ class SyntheticVCFWriter:
             )
 
         fields = synthetic_fields or {}
+        for fname, farr in fields.items():
+            if farr.shape != (pool.n_variants, n_out):
+                raise ValueError(
+                    f"synthetic_fields[{fname!r}] has shape {farr.shape}, "
+                    f"expected ({pool.n_variants}, {n_out})"
+                )
         field_names = list(fields.keys())
         fmt_str = "GT" + (":" + ":".join(field_names) if field_names else "")
 

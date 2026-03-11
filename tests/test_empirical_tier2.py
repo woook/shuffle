@@ -589,7 +589,10 @@ def test_b4_tstv_identical(fix: EmpiricalFixture) -> None:
 
     print(f"\n[B4] ts/tv = {tstv:.4f} ({ts} ts, {tv} tv) — identical for donor and synth.")
 
-    assert tstv - tstv == pytest.approx(0.0), "ts/tv should be identical for donor and synth."
+    # ts/tv is identical for donor and synthetic by construction: the shuffle
+    # reassigns genotypes but never changes which variant sites are present.
+    # Verify the ratio is a real finite number (catches fixture misconfiguration).
+    assert np.isfinite(tstv), f"ts/tv should be finite, got {tstv}"
 
 
 # ---------------------------------------------------------------------------

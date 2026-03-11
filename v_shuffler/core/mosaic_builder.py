@@ -83,6 +83,15 @@ def build_synthetic_genotypes(
     n_output = len(segment_plans)
     dosage_result = np.empty((pool.n_variants, n_output), dtype=np.uint8)
 
+    # Validate that every FORMAT field array has the expected donor-column count.
+    for name, arr in pool.format_fields.items():
+        if arr.shape != pool.dosages.shape:
+            raise ValueError(
+                f"pool.format_fields[{name!r}] has shape {arr.shape} but "
+                f"pool.dosages has shape {pool.dosages.shape}; they must match "
+                f"(n_variants × n_donors)."
+            )
+
     # Initialise format-field output arrays ("." = not yet assigned).
     # Arrays use object dtype to carry VCF-ready strings for both single-value
     # fields (AF → "0.4531") and multi-value fields (AD → "1904,3028").

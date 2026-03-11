@@ -197,8 +197,12 @@ PYEOF
         --genetic-map "$MAP_FILE"
         --chromosome "$CHROM"
         --seed 42
-        --sex-file "$WORK_DIR/sex_file.txt"
     )
+    # Only pass --sex-file if the file actually has entries; an empty sex file
+    # would cause v-shuffler to report "no female donors found" on chrX.
+    if [ -s "$WORK_DIR/sex_file.txt" ]; then
+        SHUFFLE_ARGS+=(--sex-file "$WORK_DIR/sex_file.txt")
+    fi
     [ -n "$FORMAT_FIELDS" ] && SHUFFLE_ARGS+=(--carry-format-fields "$FORMAT_FIELDS")
     "$VENV/bin/v-shuffler" shuffle "${SHUFFLE_ARGS[@]}" >> "$CHROM_LOG" 2>&1
 
@@ -249,7 +253,10 @@ echo "$(date '+%H:%M:%S') All chromosomes complete. Combining..." | tee -a "$LOG
 # ---------------------------------------------------------------------------
 # Combine per-chromosome VCFs into one file per synthetic individual
 # ---------------------------------------------------------------------------
-N_SYNTH=$(find "$PER_CHROM_DIR/1" -name "synthetic_*.vcf.gz" | wc -l)
+# Use the first chromosome directory that exists (not hardcoded to "1" so that
+# runs with a custom -c list work correctly).
+FIRST_CHROM_DIR=$(find "$PER_CHROM_DIR" -mindepth 1 -maxdepth 1 -type d | sort | head -1)
+N_SYNTH=$(find "$FIRST_CHROM_DIR" -name "synthetic_*.vcf.gz" | wc -l)
 echo "$(date '+%H:%M:%S') Combining $N_SYNTH synthetics across $(echo $CHROMS | wc -w) chromosomes..." | tee -a "$LOG"
 
 # Run combines in parallel too

@@ -277,12 +277,23 @@ Somatic VCFs carry GT:AF:DP:AD fields from donor segments.
 
 
 ### Tools & Software
+
+Versions used during this assessment (2026-03-11):
+
 - bcftools v1.20+
 - Python 3.12
 - cyvcf2 0.32.1
 - scipy 1.17.1
-- pandas 3.0.1
-- matplotlib 3.10.8
+- pandas 3.0.1 (assessment-only, not in core v_shuffler)
+- matplotlib 3.10.8 (assessment-only, not in core v_shuffler)
+
+Core v_shuffler dependencies declared in `pyproject.toml`:
+- cyvcf2 ≥0.30.0
+- numpy ≥1.24.0
+- scipy ≥1.10.0
+- click ≥8.1.0
+- pysam ≥0.21.0
+- tqdm ≥4.65.0
 
 
 ### Files Generated

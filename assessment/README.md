@@ -227,7 +227,7 @@ python scripts/6_generate_final_report.py
 
 For more details about this assessment:
 - Review the detailed report: `results/FINAL_RISK_ASSESSMENT.md`
-- Check metric definitions in Appendix
+- Check metric definitions in Appendix: Metric Definitions in `results/FINAL_RISK_ASSESSMENT.md`
 - Examine individual sample metrics: `results/metrics/per_sample_metrics.json`
 
 ---

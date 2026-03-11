@@ -213,75 +213,75 @@ def compute_format_consistency(vcf_path: Path, sample_name: str) -> Dict:
 
     with closing(VCF(str(vcf_path))) as vcf:
         for variant in vcf:
-        total_variants += 1
+            total_variants += 1
 
-        # Get genotype
-        gt = variant.genotypes[0]
-        if gt[0] == -1 or gt[1] == -1:
-            continue  # Skip missing genotypes
+            # Get genotype
+            gt = variant.genotypes[0]
+            if gt[0] == -1 or gt[1] == -1:
+                continue  # Skip missing genotypes
 
-        gt_dosage = gt[0] + gt[1]  # 0, 1, or 2
+            gt_dosage = gt[0] + gt[1]  # 0, 1, or 2
 
-        # Check AF
-        try:
-            af_field = variant.format('AF')
-            if af_field is not None and len(af_field) > 0:
-                af_val = af_field[0][0]  # First sample, first alt allele
-                if af_val is not None and af_val >= 0:
-                    af_values.append(af_val)
+            # Check AF
+            try:
+                af_field = variant.format('AF')
+                if af_field is not None and len(af_field) > 0:
+                    af_val = af_field[0][0]  # First sample, first alt allele
+                    if af_val is not None and af_val >= 0:
+                        af_values.append(af_val)
 
-                    # Check AF vs GT concordance
-                    if gt_dosage == 0 and af_val < 0.1:
-                        af_gt_concordant += 1
-                    elif gt_dosage == 1 and 0.3 <= af_val <= 0.7:
-                        af_gt_concordant += 1
-                    elif gt_dosage == 2 and af_val > 0.9:
-                        af_gt_concordant += 1
-                    else:
-                        af_gt_discordant += 1
-                else:
-                    missing_af += 1
-        except (AttributeError, IndexError, KeyError, TypeError):
-            missing_af += 1
-
-        # Check DP
-        try:
-            dp_field = variant.format('DP')
-            if dp_field is not None and len(dp_field) > 0:
-                dp_val = dp_field[0][0]  # First sample
-                if dp_val is not None and dp_val >= 0:
-                    dp_values.append(dp_val)
-                else:
-                    missing_dp += 1
-        except (AttributeError, IndexError, KeyError, TypeError):
-            missing_dp += 1
-
-        # Check AD
-        try:
-            ad_field = variant.format('AD')
-            if ad_field is not None and len(ad_field) > 0:
-                ad_vals = ad_field[0]  # First sample: [ref_depth, alt_depth]
-                if ad_vals is not None and len(ad_vals) >= 2:
-                    ref_depth = ad_vals[0] if ad_vals[0] >= 0 else 0
-                    alt_depth = ad_vals[1] if ad_vals[1] >= 0 else 0
-                    total_depth = ref_depth + alt_depth
-
-                    if total_depth > 0:
-                        alt_ratio = alt_depth / total_depth
-
-                        # Check AD vs GT concordance
-                        if gt_dosage == 0 and alt_ratio < 0.2:
-                            ad_gt_concordant += 1
-                        elif gt_dosage == 1 and 0.3 <= alt_ratio <= 0.7:
-                            ad_gt_concordant += 1
-                        elif gt_dosage == 2 and alt_ratio > 0.8:
-                            ad_gt_concordant += 1
+                        # Check AF vs GT concordance
+                        if gt_dosage == 0 and af_val < 0.1:
+                            af_gt_concordant += 1
+                        elif gt_dosage == 1 and 0.3 <= af_val <= 0.7:
+                            af_gt_concordant += 1
+                        elif gt_dosage == 2 and af_val > 0.9:
+                            af_gt_concordant += 1
                         else:
-                            ad_gt_discordant += 1
-                else:
-                    missing_ad += 1
-        except (AttributeError, IndexError, KeyError, TypeError):
-            missing_ad += 1
+                            af_gt_discordant += 1
+                    else:
+                        missing_af += 1
+            except (AttributeError, IndexError, KeyError, TypeError):
+                missing_af += 1
+
+            # Check DP
+            try:
+                dp_field = variant.format('DP')
+                if dp_field is not None and len(dp_field) > 0:
+                    dp_val = dp_field[0][0]  # First sample
+                    if dp_val is not None and dp_val >= 0:
+                        dp_values.append(dp_val)
+                    else:
+                        missing_dp += 1
+            except (AttributeError, IndexError, KeyError, TypeError):
+                missing_dp += 1
+
+            # Check AD
+            try:
+                ad_field = variant.format('AD')
+                if ad_field is not None and len(ad_field) > 0:
+                    ad_vals = ad_field[0]  # First sample: [ref_depth, alt_depth]
+                    if ad_vals is not None and len(ad_vals) >= 2:
+                        ref_depth = ad_vals[0] if ad_vals[0] >= 0 else 0
+                        alt_depth = ad_vals[1] if ad_vals[1] >= 0 else 0
+                        total_depth = ref_depth + alt_depth
+
+                        if total_depth > 0:
+                            alt_ratio = alt_depth / total_depth
+
+                            # Check AD vs GT concordance
+                            if gt_dosage == 0 and alt_ratio < 0.2:
+                                ad_gt_concordant += 1
+                            elif gt_dosage == 1 and 0.3 <= alt_ratio <= 0.7:
+                                ad_gt_concordant += 1
+                            elif gt_dosage == 2 and alt_ratio > 0.8:
+                                ad_gt_concordant += 1
+                            else:
+                                ad_gt_discordant += 1
+                    else:
+                        missing_ad += 1
+            except (AttributeError, IndexError, KeyError, TypeError):
+                missing_ad += 1
 
     # Calculate statistics
     af_missing_rate = missing_af / total_variants if total_variants > 0 else 0

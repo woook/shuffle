@@ -436,7 +436,7 @@ def test_b1_af_by_maf_bin(fix: EmpiricalFixture) -> None:
     small relative to sampling noise at N_SYNTH=100, which suppresses r below
     the production threshold even when the algorithm is correct.
 
-    The primary hard assertion (global r ≥ 0.99) is in test_b1_af_global.
+    The primary hard assertion (global r ≥ 0.98) is in test_b1_af_global.
     """
     maf = np.minimum(fix.donor_afs, 1 - fix.donor_afs)
     bins = [

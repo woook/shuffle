@@ -74,10 +74,10 @@ def build_synthetic_genotypes(
     dosages : np.ndarray, shape (pool.n_variants, n_output_samples), dtype uint8
         Synthetic dosage matrix.  Column i corresponds to synthetic individual i.
     format_fields : dict[str, np.ndarray]
-        For each field name in ``pool.format_fields``, a float32 array of shape
-        ``(pool.n_variants, n_output_samples)`` containing the value copied from
-        whichever donor was assigned to each variant's segment.  NaN where the
-        source donor had a missing value.  Empty dict when no FORMAT fields were
+        For each field name in ``pool.format_fields``, an object array of shape
+        ``(pool.n_variants, n_output_samples)`` containing VCF-ready string values
+        copied from whichever donor was assigned to each variant's segment.
+        Entries are "." for missing values.  Empty dict when no FORMAT fields were
         requested.
     """
     n_output = len(segment_plans)

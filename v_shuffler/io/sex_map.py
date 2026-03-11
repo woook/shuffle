@@ -123,11 +123,9 @@ def load_sex_map(sex_file: Path, vcf_paths: list[Path]) -> dict[Path, str]:
             result[vcf_path] = raw_map[full_key]
         elif base_key in raw_map:
             if base_key in duplicate_basenames:
-                logger.warning(
-                    "Ambiguous basename match for %s — multiple donor VCFs share "
-                    "this filename; use full paths in the sex file to avoid "
-                    "incorrect sex assignment.",
-                    base_key,
+                raise ValueError(
+                    f"Ambiguous basename {base_key!r} matches multiple donor VCFs; "
+                    "use full paths in the sex file."
                 )
             result[vcf_path] = raw_map[base_key]
         else:

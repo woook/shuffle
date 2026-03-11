@@ -74,6 +74,7 @@ import pytest
 
 _PLINK2_AVAILABLE = shutil.which("plink2") is not None
 _BCFTOOLS_AVAILABLE = shutil.which("bcftools") is not None
+_TABIX_AVAILABLE = shutil.which("tabix") is not None
 
 _SKIP_NO_PLINK2 = pytest.mark.skipif(
     not _PLINK2_AVAILABLE,
@@ -82,6 +83,10 @@ _SKIP_NO_PLINK2 = pytest.mark.skipif(
 _SKIP_NO_BCFTOOLS = pytest.mark.skipif(
     not _BCFTOOLS_AVAILABLE,
     reason="bcftools not found in PATH; install bcftools to run Tier 3 tests.",
+)
+_SKIP_NO_TABIX = pytest.mark.skipif(
+    not _TABIX_AVAILABLE,
+    reason="tabix not found in PATH; install tabix to run Tier 3 tests.",
 )
 
 
@@ -125,6 +130,7 @@ def synth_vcf() -> Path:
 
 @_SKIP_NO_PLINK2
 @_SKIP_NO_BCFTOOLS
+@_SKIP_NO_TABIX
 def test_b5_pca(
     donor_vcf: Path, synth_vcf: Path, tmp_path: Path
 ) -> None:
@@ -175,6 +181,7 @@ def test_b5_pca(
     synth_pcs: list[np.ndarray] = []
 
     with eigenvec_path.open() as fh:
+        next(fh)  # Skip header line
         for line in fh:
             parts = line.strip().split()
             sample_id = parts[1]  # IID column

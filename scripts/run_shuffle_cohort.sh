@@ -80,8 +80,11 @@ fi
 
 PER_CHROM_DIR="$OUTPUT_BASE/per_chrom"
 LOG="$OUTPUT_BASE/shuffle.log"
-WORK_BASE="/tmp/shuffle_work"
+WORK_BASE="$(mktemp -d -t shuffle_work.XXXXXX)"
 FILTERED_DIR="$WORK_BASE/filtered"
+
+# Clean up work directory on exit
+trap 'rm -rf "$WORK_BASE"' EXIT
 
 mkdir -p "$OUTPUT_BASE" "$PER_CHROM_DIR" "$WORK_BASE" "$FILTERED_DIR"
 
@@ -253,10 +256,24 @@ echo "$(date '+%H:%M:%S') All chromosomes complete. Combining..." | tee -a "$LOG
 # ---------------------------------------------------------------------------
 # Combine per-chromosome VCFs into one file per synthetic individual
 # ---------------------------------------------------------------------------
-# Use the first chromosome directory that exists (not hardcoded to "1" so that
-# runs with a custom -c list work correctly).
-FIRST_CHROM_DIR=$(find "$PER_CHROM_DIR" -mindepth 1 -maxdepth 1 -type d | sort | head -1)
-N_SYNTH=$(find "$FIRST_CHROM_DIR" -name "synthetic_*.vcf.gz" | wc -l)
+# Count synthetic outputs from the current chromosome set (not a stale directory).
+N_SYNTH=0
+for chrom in $CHROMS; do
+    chrom_dir="$PER_CHROM_DIR/$chrom"
+    if [[ -d "$chrom_dir" ]]; then
+        count=$(find "$chrom_dir" -name "synthetic_*.vcf.gz" 2>/dev/null | wc -l)
+        if [[ $count -gt 0 ]]; then
+            N_SYNTH=$count
+            break
+        fi
+    fi
+done
+
+if [[ $N_SYNTH -eq 0 ]]; then
+    echo "$(date '+%H:%M:%S') ERROR: No synthetic outputs found for chromosomes: $CHROMS" | tee -a "$LOG"
+    exit 1
+fi
+
 echo "$(date '+%H:%M:%S') Combining $N_SYNTH synthetics across $(echo $CHROMS | wc -w) chromosomes..." | tee -a "$LOG"
 
 # Run combines in parallel too

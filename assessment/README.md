@@ -15,6 +15,8 @@ This directory contains a comprehensive anonymisation quality assessment of synt
 
 See `results/FINAL_RISK_ASSESSMENT.md` for the complete report.
 
+> **Note on Paths**: For portability and privacy, absolute file paths in result files and this documentation have been replaced with placeholders (e.g., `<SOMATIC_VCF_DIR>`, `<GERMLINE_VCF_DIR>`). Update these with your actual synthetic VCF output directories when reproducing the assessment.
+
 ---
 
 ## Directory Structure
@@ -142,9 +144,9 @@ assessment/
 - **Script**: `scripts/4_create_visualizations.py`
 
 ### Phase 5: Configuration Analysis
-- **Source**: Shuffle log files (`~/Downloads/v-s/h/s/*.log`, `~/Downloads/v-s/w/*.log`)
+- **Source**: Shuffle log files from synthetic VCF output directories
 - **Extracted**: Region-sampling mode, min_donors, donor pool size, segment counts
-- **Script**: `scripts/5_analyze_configuration.py`
+- **Script**: `assessment/scripts/5_analyze_configuration.py`
 
 ### Phase 6: Risk Assessment Report
 - **Integrates**: All metrics, configuration, theoretical risk analysis
@@ -228,24 +230,25 @@ For questions about this assessment:
 
 For shuffle tool issues:
 - GitHub: https://github.com/woook/shuffle
-- Local repo: `/home/wook/Documents/shuffle`
+- Local repo: Project root directory
 
 ---
 
 ## References
 
 ### Shuffle Documentation
-- Main README: `/home/wook/Documents/shuffle/README.md`
-- Memory notes: `/home/wook/.claude/projects/-home-wook-Documents-shuffle/memory/MEMORY.md`
+- Main README: `../README.md`
+- Project documentation in repository root
 
 ### Assessment Plan
 - Original plan: See commit history or JSONL transcript
 
 ### Data Locations
-- Somatic VCFs: `~/Downloads/v-s/h/s/synthetic_*.vcf.gz`
-- Germline VCFs: `~/Downloads/v-s/w/synthetic_*.vcf.gz`
-- Somatic logs: `~/Downloads/v-s/h/s/*.log`
-- Germline logs: `~/Downloads/v-s/w/*.log`
+> **Note**: Paths below are placeholders. Update with actual synthetic VCF output directories.
+- Somatic VCFs: `<SOMATIC_VCF_DIR>/synthetic_*.vcf.gz`
+- Germline VCFs: `<GERMLINE_VCF_DIR>/synthetic_*.vcf.gz`
+- Somatic logs: `<SOMATIC_VCF_DIR>/*.log`
+- Germline logs: `<GERMLINE_VCF_DIR>/*.log`
 
 ---
 

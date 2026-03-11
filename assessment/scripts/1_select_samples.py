@@ -25,14 +25,6 @@ TOTAL_GERMLINE = 138
 SOMATIC_SAMPLE_SIZE = 17  # 10% of 168
 GERMLINE_SAMPLE_SIZE = 14  # 10% of 138
 
-# Chromosome groups for stratification
-CHROMOSOME_GROUPS = {
-    "large": ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
-    "medium": ["10", "11", "12", "13", "14", "15", "16", "17", "18"],
-    "small": ["19", "20", "21", "22", "X"]
-}
-
-
 def get_available_samples(vcf_dir: Path) -> List[int]:
     """Get list of available sample IDs from VCF directory."""
     sample_ids = []
@@ -43,19 +35,22 @@ def get_available_samples(vcf_dir: Path) -> List[int]:
     return sorted(sample_ids)
 
 
-def stratified_sample_selection(total_samples: int, sample_size: int,
-                                name: str) -> List[int]:
+def random_sample_selection(total_samples: int, sample_size: int,
+                            name: str) -> List[int]:
     """
-    Select samples using stratified random sampling.
+    Select samples using simple random sampling.
 
-    Strategy:
-    1. Ensure representation from all chromosome size groups
-    2. Random selection for remaining samples
+    Args:
+        total_samples: Total number of samples available
+        sample_size: Number of samples to select
+        name: Cohort name for logging
+
+    Returns:
+        Sorted list of selected sample IDs
     """
     all_ids = list(range(total_samples))
     random.shuffle(all_ids)
 
-    # For small sample sizes, just use random selection
     selected = all_ids[:sample_size]
     selected.sort()
 
@@ -86,14 +81,14 @@ def main():
     print("=" * 80)
 
     # Select somatic samples
-    somatic_samples = stratified_sample_selection(
+    somatic_samples = random_sample_selection(
         TOTAL_SOMATIC,
         SOMATIC_SAMPLE_SIZE,
         "Somatic"
     )
 
     # Select germline samples
-    germline_samples = stratified_sample_selection(
+    germline_samples = random_sample_selection(
         TOTAL_GERMLINE,
         GERMLINE_SAMPLE_SIZE,
         "Germline"

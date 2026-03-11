@@ -342,22 +342,19 @@ def test_p2_closest_donor_attack(fix: EmpiricalFixture) -> None:
         "[P2] Pass thresholds (plan §P2): ratio < 5× | concerning 10-30× | alarming > 50% absolute"
     )
 
+    # Hard assertions for documented privacy thresholds
     assert attack_rate < 1.0, "Attack succeeded on every synthetic — possible bug."
 
-    if attack_rate > 0.50:
-        warnings.warn(
-            f"[P2 ALARMING] Attack success rate {attack_rate:.3f} > 50% absolute. "
-            "Primary donors are identifiable from synthetic output. "
-            "This is a known limitation of the unphased-mosaic design.",
-            UserWarning,
-            stacklevel=2,
-        )
-    elif ratio > 10:
-        warnings.warn(
-            f"[P2 CONCERNING] Attack success ratio {ratio:.1f}× > 10× random baseline.",
-            UserWarning,
-            stacklevel=2,
-        )
+    assert attack_rate <= 0.50, (
+        f"[P2 ALARMING] Attack success rate {attack_rate:.3f} > 50% absolute. "
+        "Primary donors are identifiable from synthetic output. "
+        "Privacy threshold exceeded."
+    )
+
+    assert ratio <= 10, (
+        f"[P2 CONCERNING] Attack success ratio {ratio:.1f}× > 10× random baseline. "
+        "Privacy threshold exceeded."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -389,23 +386,20 @@ def test_p4_membership_inference(fix: EmpiricalFixture) -> None:
     print(f"[P4] Wilcoxon signed-rank p-value: {p_val:.4g}")
     print("[P4] Pass thresholds (plan §P4): mean delta < 0.005, frac > 0.02 < 5%, p > 0.05")
 
+    # Hard assertions for documented privacy thresholds
     assert np.isfinite(mean_delta), "mean_delta is not finite — computation error."
 
-    if mean_delta > 0.02 or p_val < 0.001:
-        warnings.warn(
-            f"[P4 ALARMING] Membership inference signal is strong: "
-            f"mean delta={mean_delta:.4f}, Wilcoxon p={p_val:.2e}. "
-            "Synthetics are measurably more similar to their donors than to "
-            "held-out individuals. This is a known limitation of the approach.",
-            UserWarning,
-            stacklevel=2,
-        )
-    elif p_val < 0.05:
-        warnings.warn(
-            f"[P4 CONCERNING] Wilcoxon p={p_val:.4f} < 0.05 — membership signal detected.",
-            UserWarning,
-            stacklevel=2,
-        )
+    assert mean_delta <= 0.02 and p_val >= 0.001, (
+        f"[P4 ALARMING] Membership inference signal is strong: "
+        f"mean delta={mean_delta:.4f}, Wilcoxon p={p_val:.2e}. "
+        "Synthetics are measurably more similar to their donors than to held-out individuals. "
+        "Privacy threshold exceeded."
+    )
+
+    assert p_val >= 0.05, (
+        f"[P4 CONCERNING] Wilcoxon p={p_val:.4f} < 0.05 — membership signal detected. "
+        "Privacy threshold exceeded."
+    )
 
 
 # ---------------------------------------------------------------------------

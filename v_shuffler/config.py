@@ -58,5 +58,5 @@ class ShufflerConfig:
             raise ValueError("region_gap_bp must be >= 1")
         if self.min_donors_per_synthetic < 1:
             raise ValueError("min_donors_per_synthetic must be >= 1")
-        if self.sex_file is not None and not self.sex_file.exists():
-            raise ValueError(f"sex_file does not exist: {self.sex_file}")
+        if self.sex_file is not None and not self.sex_file.is_file():
+            raise ValueError(f"sex_file must point to an existing file: {self.sex_file}")

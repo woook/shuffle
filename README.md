@@ -42,7 +42,7 @@ segments; no original individual's genome appears in the output intact.
 7. [Module and API reference](#module-and-api-reference)
    - [config.py — ShufflerConfig](#configpy--shufflerconfig)
    - [io/genetic_map.py — GeneticMap](#iogenetic_mapy--geneticmap)
-   - [io/vcf_reader.py — PerSampleVCFReader](#iovcf_readery--persamplevcfreader)
+   - [io/vcf_reader.py — PerSampleVCFReader](#iovcf_readerpy--persamplevcfreader-and-resolve_chromosome_name)
    - [io/sex_map.py — sex map utilities](#iosex_mapy--sex-map-utilities)
    - [io/vcf_writer.py — SyntheticVCFWriter](#iovcf_writery--syntheticvcfwriter)
    - [core/genotype_pool.py — GenotypePool](#coregenotype_poolpy--genotypepool)

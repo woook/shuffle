@@ -27,7 +27,7 @@
       147,
       149
     ],
-    "vcf_directory": "/home/wook/Downloads/v-s/h/s",
+    "vcf_directory": "<SOMATIC_VCF_DIR>",
     "verification": {
       "2": true,
       "11": true,
@@ -68,7 +68,7 @@
       123,
       124
     ],
-    "vcf_directory": "/home/wook/Downloads/v-s/w",
+    "vcf_directory": "<GERMLINE_VCF_DIR>",
     "verification": {
       "18": true,
       "19": true,

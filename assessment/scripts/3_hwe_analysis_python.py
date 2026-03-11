@@ -8,6 +8,7 @@ Uses scipy for statistical tests.
 
 import json
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Dict, List
 import numpy as np
@@ -87,24 +88,22 @@ def analyze_vcf_hwe(vcf_paths: List[Path], cohort_name: str) -> Dict:
 
     # Read all VCFs and aggregate genotypes by position
     for vcf_path in vcf_paths:
-        vcf = VCF(str(vcf_path))
-        for variant in vcf:
-            pos_key = (variant.CHROM, variant.POS, variant.REF, variant.ALT[0] if variant.ALT else "")
+        with closing(VCF(str(vcf_path))) as vcf:
+            for variant in vcf:
+                pos_key = (variant.CHROM, variant.POS, variant.REF, variant.ALT[0] if variant.ALT else "")
 
-            if pos_key not in variant_genotypes:
-                variant_genotypes[pos_key] = {"hom_ref": 0, "het": 0, "hom_alt": 0, "missing": 0}
+                if pos_key not in variant_genotypes:
+                    variant_genotypes[pos_key] = {"hom_ref": 0, "het": 0, "hom_alt": 0, "missing": 0}
 
-            gt = variant.genotypes[0]
-            if gt[0] == -1 or gt[1] == -1:
-                variant_genotypes[pos_key]["missing"] += 1
-            elif gt[0] == 0 and gt[1] == 0:
-                variant_genotypes[pos_key]["hom_ref"] += 1
-            elif gt[0] != gt[1]:
-                variant_genotypes[pos_key]["het"] += 1
-            elif gt[0] == gt[1] and gt[0] > 0:
-                variant_genotypes[pos_key]["hom_alt"] += 1
-
-        vcf.close()
+                gt = variant.genotypes[0]
+                if gt[0] == -1 or gt[1] == -1:
+                    variant_genotypes[pos_key]["missing"] += 1
+                elif gt[0] == 0 and gt[1] == 0:
+                    variant_genotypes[pos_key]["hom_ref"] += 1
+                elif gt[0] != gt[1]:
+                    variant_genotypes[pos_key]["het"] += 1
+                elif gt[0] == gt[1] and gt[0] > 0:
+                    variant_genotypes[pos_key]["hom_alt"] += 1
 
     print(f"  Aggregated genotypes for {len(variant_genotypes):,} variants")
 

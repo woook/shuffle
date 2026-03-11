@@ -30,8 +30,14 @@ def parse_log_file(log_path: Path) -> Dict:
     # Extract region sampling mode
     if "--no-region-sampling" in content or "region_sampling: false" in content.lower():
         config["region_sampling"] = False
+        config["region_sampling_explicit"] = True
+    elif "region_sampling: true" in content.lower() or "--region-sampling" in content:
+        config["region_sampling"] = True
+        config["region_sampling_explicit"] = True
     else:
-        config["region_sampling"] = True  # Default
+        # Default when not found in logs
+        config["region_sampling"] = True
+        config["region_sampling_explicit"] = False
 
     # Extract region count
     region_match = re.search(r'(\d+)\s+regions\s+detected', content, re.IGNORECASE)
@@ -97,11 +103,13 @@ def analyze_cohort_logs(log_dir: Path, cohort_name: str) -> Dict:
         print("  WARNING: Could not parse any log files")
         return {"error": "parsing failed"}
 
-    # Aggregate configuration
+    # Aggregate configuration (only count explicitly-detected values)
+    explicit_region_sampling = [c["region_sampling"] for c in configs if c.get("region_sampling_explicit", False)]
+
     aggregated = {
         "cohort": cohort_name,
         "log_files_analyzed": len(configs),
-        "region_sampling_enabled": any(c.get("region_sampling", False) for c in configs),
+        "region_sampling_enabled": any(explicit_region_sampling) if explicit_region_sampling else None,
         "region_counts": [c.get("region_count") for c in configs if "region_count" in c],
         "min_donors_values": [c.get("min_donors") for c in configs if "min_donors" in c],
         "donor_pool_sizes": [c.get("donor_pool_size") for c in configs if "donor_pool_size" in c],

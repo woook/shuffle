@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from cyvcf2 import VCF, Writer, Variant
+    from cyvcf2 import VCF
 except ImportError as exc:
     raise ImportError(
         "cyvcf2 is required. Install it with: pip install cyvcf2"
@@ -41,6 +41,19 @@ _DOSAGE_TO_GT: dict[int, str] = {0: "0/0", 1: "0/1", 2: "1/1", MISSING: "./."}
 
 def _dosage_to_gt_str(dosage: int) -> str:
     return _DOSAGE_TO_GT.get(int(dosage), "./.")
+
+
+def _build_sample_str(dosage: int, field_vals: list[str]) -> str:
+    """
+    Build the per-sample column value, e.g. ``'0/1:0.4531:127'`` or
+    ``'0/1:0.4531:3932:1904,3028'``.
+
+    *field_vals* are VCF-ready strings already formatted by
+    ``_get_format_str`` in the reader (single values like ``"0.4531"`` or
+    multi-value like ``"1904,3028"``).  They are passed straight through.
+    """
+    parts = [_dosage_to_gt_str(dosage)] + list(field_vals)
+    return ":".join(parts)
 
 
 def _make_provenance_line(version: str, seed: int | None, chromosome: str) -> str:
@@ -103,7 +116,6 @@ class SyntheticVCFWriter:
         self.output_dir = output_dir
         self.sample_names = sample_names
         self.output_mode = output_mode
-        self.n_samples = len(sample_names)
 
         provenance = _make_provenance_line(version, seed, chromosome)
 
@@ -134,6 +146,7 @@ class SyntheticVCFWriter:
         self,
         pool: GenotypePool,
         synthetic_dosages: np.ndarray,
+        synthetic_fields: dict[str, np.ndarray] | None = None,
     ) -> None:
         """
         Write one chunk of synthetic genotypes.
@@ -144,25 +157,49 @@ class SyntheticVCFWriter:
             Source pool — used for variant metadata (CHROM, POS, REF, ALT, etc.).
         synthetic_dosages : np.ndarray, shape (n_variants, n_synthetic_samples), uint8
             Synthetic dosage matrix from mosaic_builder.build_synthetic_genotypes.
+        synthetic_fields : dict[str, np.ndarray] or None
+            Optional additional FORMAT fields to write alongside GT.  Each value
+            must have shape ``(n_variants, n_synthetic_samples)``, dtype object
+            (VCF-ready strings as produced by ``build_synthetic_genotypes``).
+            Keys are written in iteration order, e.g. ``{"AF": ..., "DP": ...}``
+            produces a FORMAT column of ``GT:AF:DP``.
         """
-        assert synthetic_dosages.shape == (pool.n_variants, self.n_samples), (
-            f"synthetic_dosages shape {synthetic_dosages.shape} does not match "
-            f"({pool.n_variants}, {self.n_samples})"
-        )
+        n_out = len(self.sample_names)
+        if synthetic_dosages.shape != (pool.n_variants, n_out):
+            raise ValueError(
+                f"synthetic_dosages shape {synthetic_dosages.shape} does not match "
+                f"({pool.n_variants}, {n_out})"
+            )
+
+        fields = synthetic_fields or {}
+        for fname, farr in fields.items():
+            if farr.shape != (pool.n_variants, n_out):
+                raise ValueError(
+                    f"synthetic_fields[{fname!r}] has shape {farr.shape}, "
+                    f"expected ({pool.n_variants}, {n_out})"
+                )
+        field_names = list(fields.keys())
+        fmt_str = "GT" + (":" + ":".join(field_names) if field_names else "")
 
         if self.output_mode == "multi_sample":
             writer = self._writers[0]
             for v_idx, vi in enumerate(pool.variant_info):
-                gt_fields = "\t".join(
-                    _dosage_to_gt_str(synthetic_dosages[v_idx, s])
-                    for s in range(self.n_samples)
+                sample_cols = "\t".join(
+                    _build_sample_str(
+                        synthetic_dosages[v_idx, s],
+                        [str(fields[f][v_idx, s]) for f in field_names],
+                    )
+                    for s in range(n_out)
                 )
-                writer.write(self._format_record(vi, gt_fields))
+                writer.write(self._format_record(vi, sample_cols, fmt_str))
         else:
-            for s_idx, writer in enumerate(self._writers):
-                for v_idx, vi in enumerate(pool.variant_info):
-                    gt_field = _dosage_to_gt_str(synthetic_dosages[v_idx, s_idx])
-                    writer.write(self._format_record(vi, gt_field))
+            for v_idx, vi in enumerate(pool.variant_info):
+                for s_idx, writer in enumerate(self._writers):
+                    sample_col = _build_sample_str(
+                        synthetic_dosages[v_idx, s_idx],
+                        [str(fields[f][v_idx, s_idx]) for f in field_names],
+                    )
+                    writer.write(self._format_record(vi, sample_col, fmt_str))
 
     def finalize(self) -> list[Path]:
         """
@@ -197,14 +234,14 @@ class SyntheticVCFWriter:
         return fh
 
     @staticmethod
-    def _format_record(vi, gt_fields: str) -> str:
+    def _format_record(vi, sample_cols: str, fmt_str: str = "GT") -> str:
         """Format a VCF data line for one variant."""
         qual = "." if vi.qual is None else str(vi.qual)
         filt = ";".join(vi.filters) if vi.filters else "PASS"
         alts = ",".join(vi.alts) if vi.alts else "."
         return (
             f"{vi.chrom}\t{vi.pos}\t{vi.id}\t{vi.ref}\t{alts}\t"
-            f"{qual}\t{filt}\t.\tGT\t{gt_fields}\n"
+            f"{qual}\t{filt}\t.\t{fmt_str}\t{sample_cols}\n"
         )
 
     @staticmethod

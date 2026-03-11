@@ -210,3 +210,113 @@ class TestVersion:
         result = runner.invoke(main, ["--version"])
         assert result.exit_code == 0
         assert "v-shuffler" in result.output
+
+
+# ---------------------------------------------------------------------------
+# Chromosome name normalisation
+# ---------------------------------------------------------------------------
+
+def _make_bare_chrom_vcfs(tmp_path: Path) -> tuple[list[Path], Path]:
+    """
+    Return (vcf_paths, map_path) where the VCFs use bare '22' chromosome names
+    (no 'chr' prefix) and the genetic map similarly uses '22'.
+    """
+    header = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##contig=<ID=22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\t{sample}
+    """)
+    positions = [100, 5000, 50000, 200000, 400000, 600000, 800000, 2000000, 4000000, 9000000]
+    refs =      ["T",  "C",  "G",   "A",    "T",    "C",    "G",    "A",     "T",     "C"]
+    alts =      ["A",  "G",  "C",   "T",    "A",    "G",    "C",    "T",     "A",     "G"]
+    gts_list = [
+        ["0/0", "0/1", "1/1", "0/0", "0/1", "1/1", "0/0", "0/1", "1/1", "0/0"],
+        ["0/1", "1/1", "0/0", "0/1", "1/1", "0/0", "0/1", "1/1", "0/0", "0/1"],
+        ["1/1", "0/0", "0/1", "1/1", "0/0", "0/1", "1/1", "0/0", "0/1", "1/1"],
+        ["0/0", "0/0", "0/0", "1/1", "1/1", "1/1", "0/1", "0/1", "0/1", "0/0"],
+        ["0/1", "0/1", "0/1", "0/0", "0/0", "0/0", "1/1", "1/1", "1/1", "0/1"],
+    ]
+    paths = []
+    for i, gts in enumerate(gts_list):
+        lines = "\n".join(
+            f"22\t{pos}\t.\t{ref}\t{alt}\t.\tPASS\t.\tGT\t{gt}"
+            for pos, ref, alt, gt in zip(positions, refs, alts, gts)
+        )
+        p = tmp_path / f"bare_{i}.vcf"
+        p.write_text(header.format(sample=f"sample{i}") + lines + "\n")
+        paths.append(p)
+
+    map_path = tmp_path / "map_bare.txt"
+    map_path.write_text(
+        "pos chr cM\n"
+        "100 22 0.0\n"
+        "100000 22 1.0\n"
+        "500000 22 3.0\n"
+        "1000000 22 5.0\n"
+        "5000000 22 8.0\n"
+        "10000000 22 10.0\n"
+    )
+    return paths, map_path
+
+
+class TestChromosomeNormalisation:
+    def test_bare_vcf_with_chr_prefix_flag(self, tmp_path: Path) -> None:
+        """VCFs use '22', user passes --chromosome chr22 → run succeeds."""
+        vcf_paths, map_path = _make_bare_chrom_vcfs(tmp_path)
+        filelist = tmp_path / "samples.txt"
+        filelist.write_text("\n".join(str(p) for p in vcf_paths) + "\n")
+        out_dir = tmp_path / "out"
+
+        result = CliRunner().invoke(main, [
+            "shuffle",
+            "--input", f"@{filelist}",
+            "--output-dir", str(out_dir),
+            "--genetic-map", str(map_path),
+            "--chromosome", "chr22",   # prefixed — VCFs use bare '22'
+            "--n-samples", "3",
+            "--seed", "42",
+        ])
+        assert result.exit_code == 0, result.output
+        assert len(list(out_dir.glob("synthetic_*.vcf*"))) >= 3
+
+    def test_bare_vcf_with_bare_flag(self, tmp_path: Path) -> None:
+        """VCFs use '22', user passes --chromosome 22 → run succeeds (no change needed)."""
+        vcf_paths, map_path = _make_bare_chrom_vcfs(tmp_path)
+        filelist = tmp_path / "samples.txt"
+        filelist.write_text("\n".join(str(p) for p in vcf_paths) + "\n")
+        out_dir = tmp_path / "out"
+
+        result = CliRunner().invoke(main, [
+            "shuffle",
+            "--input", f"@{filelist}",
+            "--output-dir", str(out_dir),
+            "--genetic-map", str(map_path),
+            "--chromosome", "22",
+            "--n-samples", "3",
+            "--seed", "42",
+        ])
+        assert result.exit_code == 0, result.output
+        assert len(list(out_dir.glob("synthetic_*.vcf*"))) >= 3
+
+    def test_normalisation_logged(
+        self, tmp_path: Path, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """When the name is normalised, an INFO message is logged."""
+        import logging
+        vcf_paths, map_path = _make_bare_chrom_vcfs(tmp_path)
+        filelist = tmp_path / "samples.txt"
+        filelist.write_text("\n".join(str(p) for p in vcf_paths) + "\n")
+        out_dir = tmp_path / "out"
+
+        with caplog.at_level(logging.INFO, logger="v_shuffler"):
+            CliRunner().invoke(main, [
+                "shuffle",
+                "--input", f"@{filelist}",
+                "--output-dir", str(out_dir),
+                "--genetic-map", str(map_path),
+                "--chromosome", "chr22",   # will be normalised to '22'
+                "--n-samples", "2",
+                "--seed", "42",
+            ])
+        assert any("normalised" in r.message for r in caplog.records)

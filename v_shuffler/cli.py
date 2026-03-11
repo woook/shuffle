@@ -20,9 +20,14 @@ from tqdm import tqdm
 from v_shuffler import __version__
 from v_shuffler.config import ShufflerConfig
 from v_shuffler.core.mosaic_builder import build_synthetic_genotypes
-from v_shuffler.core.recombination import generate_all_segment_plans
+from v_shuffler.core.recombination import (
+    detect_regions,
+    generate_all_region_plans,
+    generate_all_segment_plans,
+)
 from v_shuffler.io.genetic_map import GeneticMap
-from v_shuffler.io.vcf_reader import PerSampleVCFReader
+from v_shuffler.io.sex_map import filter_vcfs_by_sex, load_sex_map, sex_filter_for_chromosome
+from v_shuffler.io.vcf_reader import PerSampleVCFReader, resolve_chromosome_name
 from v_shuffler.io.vcf_writer import SyntheticVCFWriter
 
 logger = logging.getLogger("v_shuffler")
@@ -117,6 +122,36 @@ def main() -> None:
 )
 @click.option("--max-missing", default=0.05, show_default=True, type=float,
               help="Maximum fraction of missing calls per variant (variants above this are skipped).")
+@click.option(
+    "--no-region-sampling", "region_sampling",
+    is_flag=True, default=True, flag_value=False,
+    help="Disable region-based sampling. Use classic continuous-cM mode (for whole-chromosome data).",
+)
+@click.option(
+    "--region-gap", default=10_000, show_default=True, type=int,
+    help="bp gap between variants that starts a new captured region (region mode only).",
+)
+@click.option(
+    "--min-donors", default=1, show_default=True, type=int,
+    help="Minimum distinct donors per synthetic individual.",
+)
+@click.option(
+    "--sex-file", default=None, type=click.Path(exists=True),
+    help=(
+        "Two-column file mapping donor VCF paths to sex (F/M). "
+        "When provided, chrX is shuffled from female donors only and "
+        "chrY from male donors only. Autosomes use the full donor pool."
+    ),
+)
+@click.option(
+    "--carry-format-fields", "carry_format_fields", default="", show_default=False,
+    help=(
+        "Comma-separated FORMAT field names to copy from source donors into the "
+        "synthetic output alongside GT (e.g. 'AF' or 'AF,DP'). "
+        "Useful for somatic data where retaining variant allele fraction is desirable. "
+        "Default: GT only."
+    ),
+)
 @click.option("--verbose", is_flag=True, help="Enable debug logging.")
 def shuffle(
     input_spec: str,
@@ -129,6 +164,11 @@ def shuffle(
     threads: int,
     output_mode: str,
     max_missing: float,
+    region_sampling: bool,
+    region_gap: int,
+    min_donors: int,
+    sex_file: str | None,
+    carry_format_fields: str,
     verbose: bool,
 ) -> None:
     """
@@ -145,6 +185,8 @@ def shuffle(
     out_dir = Path(output_dir)
     n_output = n_samples if n_samples is not None else len(input_paths)
 
+    parsed_fields = tuple(f.strip() for f in carry_format_fields.split(",") if f.strip())
+
     config = ShufflerConfig(
         input_vcfs=input_paths,
         output_dir=out_dir,
@@ -156,6 +198,11 @@ def shuffle(
         n_threads=threads,
         output_mode=output_mode,
         max_missing_rate=max_missing,
+        region_sampling=region_sampling,
+        region_gap_bp=region_gap,
+        min_donors_per_synthetic=min_donors,
+        sex_file=Path(sex_file) if sex_file is not None else None,
+        carry_format_fields=parsed_fields,
     )
 
     _run_shuffle(config)
@@ -166,28 +213,111 @@ def _run_shuffle(config: ShufflerConfig) -> None:
 
     rng = np.random.default_rng(config.seed)
 
-    logger.info("Loading genetic map for %s ...", config.chromosome)
-    gmap = GeneticMap(config.genetic_map, config.chromosome)
+    # Resolve the chromosome name against the VCF's actual naming convention.
+    # Some pipelines write "chr22"; others write "22".  We detect which form
+    # the first input VCF uses and normalise once so every downstream component
+    # (genetic map, reader, writer) sees a consistent name.
+    chrom = resolve_chromosome_name(config.input_vcfs[0], config.chromosome)
+    if chrom != config.chromosome:
+        logger.info(
+            "Chromosome name normalised from %r to %r to match VCF convention.",
+            config.chromosome, chrom,
+        )
+
+    logger.info("Loading genetic map for %s ...", chrom)
+    gmap = GeneticMap(config.genetic_map, chrom)
     logger.info(
         "Map loaded: %.2f – %.2f cM (total %.2f cM)",
         gmap.start_cm, gmap.end_cm, gmap.total_length_cm,
     )
 
-    n_pool_samples = len(config.input_vcfs)
+    # Determine the effective donor pool.  For sex chromosomes this may be a
+    # subset of config.input_vcfs filtered to the appropriate sex.
+    required_sex = sex_filter_for_chromosome(chrom)
+    if config.sex_file is not None:
+        sex_map = load_sex_map(config.sex_file, config.input_vcfs)
+        if required_sex is not None:
+            sex_label = "female" if required_sex == "F" else "male"
+            pool_vcfs = filter_vcfs_by_sex(config.input_vcfs, sex_map, required_sex)
+            if not pool_vcfs:
+                raise click.ClickException(
+                    f"No {sex_label} donors found in {config.sex_file} for "
+                    f"chromosome {chrom}. "
+                    "Check that --sex-file contains the correct paths and sex labels."
+                )
+            logger.info(
+                "Sex chromosome %s: restricting donor pool to %d %s donors (%d total).",
+                chrom, len(pool_vcfs), sex_label, len(config.input_vcfs),
+            )
+        else:
+            pool_vcfs = config.input_vcfs
+    else:
+        if required_sex is not None:
+            logger.warning(
+                "Processing sex chromosome %s without --sex-file. "
+                "All %d donors will be used regardless of sex. "
+                "Pass --sex-file to restrict %s to %s donors only.",
+                chrom,
+                len(config.input_vcfs),
+                chrom,
+                "female" if required_sex == "F" else "male",
+            )
+        pool_vcfs = config.input_vcfs
+
+    n_pool_samples = len(pool_vcfs)
+
+    # Construct reader upfront — needed for the first-pass position scan in region mode.
+    reader = PerSampleVCFReader(
+        vcf_paths=pool_vcfs,
+        chromosome=chrom,
+        genetic_map=gmap,
+        chunk_size=config.chunk_size_variants,
+        max_missing_rate=config.max_missing_rate,
+        carry_format_fields=config.carry_format_fields,
+    )
+    if config.carry_format_fields:
+        logger.info(
+            "Carrying FORMAT fields through to synthetic output: %s",
+            ", ".join(config.carry_format_fields),
+        )
+
     logger.info(
         "Generating segment plans for %d synthetic individuals from %d donors ...",
         config.n_output_samples, n_pool_samples,
     )
 
-    segment_plans = generate_all_segment_plans(
-        n_output_samples=config.n_output_samples,
-        genetic_map=gmap,
-        n_pool_samples=n_pool_samples,
-        rng=rng,
-        lambda_override=config.n_crossovers_lambda,
-    )
+    if config.region_sampling:
+        all_positions = reader.iter_positions()
+        logger.info("First pass: %d variant positions scanned", len(all_positions))
+        regions_bp = detect_regions(all_positions, config.region_gap_bp)
+        logger.info(
+            "Detected %d captured regions (gap threshold %d bp)",
+            len(regions_bp), config.region_gap_bp,
+        )
+        if regions_bp:
+            bp_flat = np.array([[r[0], r[1]] for r in regions_bp], dtype=np.int64).ravel()
+            cm_flat = gmap.bp_to_cm(bp_flat).reshape(-1, 2)
+            regions_cm = [(float(row[0]), float(row[1])) for row in cm_flat]
+        else:
+            regions_cm = []
+        segment_plans = generate_all_region_plans(
+            n_output_samples=config.n_output_samples,
+            regions_cm=regions_cm,
+            n_pool_samples=n_pool_samples,
+            rng=rng,
+            min_donors=config.min_donors_per_synthetic,
+        )
+    else:
+        segment_plans = generate_all_segment_plans(
+            n_output_samples=config.n_output_samples,
+            genetic_map=gmap,
+            n_pool_samples=n_pool_samples,
+            rng=rng,
+            lambda_override=config.n_crossovers_lambda,
+            min_donors=config.min_donors_per_synthetic,
+        )
 
-    avg_segs = sum(len(p) for p in segment_plans) / len(segment_plans)
+    avg_segs = sum(len(p) for p in segment_plans) / max(len(segment_plans), 1)
     logger.info("Average segments per synthetic individual: %.1f", avg_segs)
 
     sample_names = [f"synthetic_{i}" for i in range(config.n_output_samples)]
@@ -195,27 +325,19 @@ def _run_shuffle(config: ShufflerConfig) -> None:
     writer = SyntheticVCFWriter(
         output_dir=config.output_dir,
         sample_names=sample_names,
-        template_vcf_path=config.input_vcfs[0],
+        template_vcf_path=pool_vcfs[0],
         output_mode=config.output_mode,
         seed=config.seed,
-        chromosome=config.chromosome,
+        chromosome=chrom,
         version=__version__,
-    )
-
-    reader = PerSampleVCFReader(
-        vcf_paths=config.input_vcfs,
-        chromosome=config.chromosome,
-        genetic_map=gmap,
-        chunk_size=config.chunk_size_variants,
-        max_missing_rate=config.max_missing_rate,
     )
 
     logger.info("Streaming variants and building synthetic genotypes ...")
     total_variants = 0
 
     for pool in tqdm(reader.iter_chunks(), desc="Chunks", unit="chunk"):
-        synthetic = build_synthetic_genotypes(pool, segment_plans)
-        writer.write_chunk(pool, synthetic)
+        synthetic_dosages, synthetic_fields = build_synthetic_genotypes(pool, segment_plans)
+        writer.write_chunk(pool, synthetic_dosages, synthetic_fields or None)
         total_variants += pool.n_variants
 
     logger.info("Processed %d variants total", total_variants)

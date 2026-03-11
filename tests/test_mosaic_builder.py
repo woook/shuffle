@@ -134,7 +134,7 @@ def test_build_synthetic_genotypes_shape() -> None:
         [Segment(0.0, 7.0, 1)],
         [Segment(0.0, 7.0, 2)],
     ]
-    result = build_synthetic_genotypes(pool, plans)
+    result, _ = build_synthetic_genotypes(pool, plans)
     assert result.shape == (8, 3)
 
 
@@ -153,7 +153,7 @@ def test_build_synthetic_genotypes_correct_donors() -> None:
         [Segment(0.0, 5.0, 0)],  # output 1 → donor 0 → all 0s
         [Segment(0.0, 5.0, 1)],  # output 2 → donor 1 → all 1s
     ]
-    result = build_synthetic_genotypes(pool, plans)
+    result, _ = build_synthetic_genotypes(pool, plans)
 
     np.testing.assert_array_equal(result[:, 0], np.full(n_var, 2, dtype=np.uint8))
     np.testing.assert_array_equal(result[:, 1], np.zeros(n_var, dtype=np.uint8))
@@ -175,7 +175,8 @@ def test_build_synthetic_genotypes_mosaic() -> None:
         Segment(cm_start=0.0, cm_end=4.5, sample_idx=0),
         Segment(cm_start=4.5, cm_end=9.0, sample_idx=1),
     ]
-    result = build_synthetic_genotypes(pool, [plan])[:, 0]
+    result_mat, _ = build_synthetic_genotypes(pool, [plan])
+    result = result_mat[:, 0]
 
     # First 5 variants (cm 0-4) → donor 0 → dosage 0
     # Last 5 variants (cm 5-9) → donor 1 → dosage 2

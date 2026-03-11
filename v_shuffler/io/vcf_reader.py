@@ -35,6 +35,57 @@ from v_shuffler.io.genetic_map import GeneticMap
 logger = logging.getLogger(__name__)
 
 
+def resolve_chromosome_name(vcf_path: Path, chromosome: str) -> str:
+    """
+    Return the form of *chromosome* that the VCF file actually uses.
+
+    Some pipelines write ``chr22``; others write ``22``.  This function
+    opens the first VCF in the cohort (header + index only — no records
+    are read), inspects the sequence names reported by cyvcf2, and returns
+    the matching form.
+
+    Resolution order (first match wins):
+      1. *chromosome* as supplied by the user.
+      2. With ``chr`` prefix added (e.g. ``22`` → ``chr22``).
+      3. With ``chr`` prefix stripped (e.g. ``chr22`` → ``22``).
+
+    Falls back to *chromosome* unchanged when the VCF has neither
+    ``##contig`` header lines nor a tabix/CSI index (e.g. small plain-text
+    test files without contig headers).  In that case ``_region_iter``'s
+    plain-VCF fallback, which already checks all three forms, handles the
+    iteration correctly.
+
+    Parameters
+    ----------
+    vcf_path :
+        Path to any one of the donor VCF files.  Only the header / index
+        is inspected; no genotype records are read.
+    chromosome :
+        The chromosome name supplied by the user (e.g. from ``--chromosome``).
+
+    Returns
+    -------
+    str
+        The chromosome name as it appears in *vcf_path*, or *chromosome*
+        unchanged if the VCF provides no sequence-name information.
+    """
+    reader = VCF(str(vcf_path))
+    seqnames = set(reader.seqnames)
+    reader.close()
+
+    if not seqnames:
+        return chromosome  # no contig info available; keep as-is
+
+    bare = chromosome.lstrip("chr")
+    prefixed = "chr" + bare
+
+    for candidate in (chromosome, prefixed, bare):
+        if candidate in seqnames:
+            return candidate
+
+    return chromosome  # fallback: let downstream code handle it
+
+
 def _gt_to_dosage(gt: list) -> int:
     """
     Convert a cyvcf2 genotype list [allele1, allele2, phased] to a dosage.
@@ -52,24 +103,47 @@ def _gt_to_dosage(gt: list) -> int:
     return int(a1 > 0) + int(a2 > 0)
 
 
-def _genotypes_to_dosages(variant) -> np.ndarray:
-    """
-    Extract dosage array for all samples at one variant.
+_HTSLIB_MISSING_INT = -2_147_483_648  # htslib sentinel for missing integer FORMAT fields
 
-    Parameters
-    ----------
-    variant : cyvcf2.Variant
 
-    Returns
-    -------
-    np.ndarray, shape (n_samples,), dtype uint8
+def _fmt_val(v: float) -> str:
+    """Format a single numeric value as a VCF string, mapping sentinels to '.'."""
+    if v != v:  # NaN
+        return "."
+    if v == _HTSLIB_MISSING_INT:
+        return "."
+    if v >= 0 and v == int(v):
+        return str(int(v))
+    return f"{v:.4g}"
+
+
+def _get_format_str(variant, field_name: str) -> str:
     """
-    gts = variant.genotypes  # list of [a1, a2, phased] per sample
-    n = len(gts)
-    dosages = np.empty(n, dtype=np.uint8)
-    for i, gt in enumerate(gts):
-        dosages[i] = _gt_to_dosage(gt)
-    return dosages
+    Extract a FORMAT field from one cyvcf2 variant and return it as a
+    VCF-ready string.
+
+    - Single-value fields (e.g. ``AF``, ``DP``) → ``"0.4531"`` / ``"127"``
+    - Multi-value fields (e.g. ``AD`` with ``Number=R``) → ``"1904,3028"``
+    - Missing or htslib sentinel → ``"."``
+
+    Storing as strings means the field is carried through unchanged regardless
+    of whether it is single- or multi-valued, and htslib's missing-integer
+    sentinel (-2147483648) is handled at read time rather than at write time.
+    """
+    try:
+        data = variant.format(field_name)
+        if data is None:
+            return "."
+        val = data[0]  # first (only) sample in a per-sample VCF
+        if hasattr(val, "__len__") and len(val) > 1:
+            # Multi-value field (e.g. AD with Number=R): return all values
+            return ",".join(_fmt_val(float(v)) for v in val)
+        else:
+            v = float(val[0] if hasattr(val, "__len__") else val)
+            return _fmt_val(v)
+    except (TypeError, ValueError, IndexError):
+        return "."
+
 
 
 class PerSampleVCFReader:
@@ -91,6 +165,11 @@ class PerSampleVCFReader:
         Number of variants per yielded chunk.
     max_missing_rate : float
         Variants with a higher missing rate are skipped.
+    carry_format_fields : tuple[str, ...]
+        Additional FORMAT field names to read and carry through to the
+        ``GenotypePool.format_fields`` dict (e.g. ``("AF", "DP")``).
+        Each field is stored as a float32 array; NaN encodes missing values.
+        Default: empty (GT only).
     """
 
     def __init__(
@@ -100,6 +179,7 @@ class PerSampleVCFReader:
         genetic_map: GeneticMap,
         chunk_size: int = 50_000,
         max_missing_rate: float = 0.05,
+        carry_format_fields: tuple[str, ...] = (),
     ) -> None:
         if not vcf_paths:
             raise ValueError("vcf_paths must not be empty")
@@ -108,6 +188,7 @@ class PerSampleVCFReader:
         self.genetic_map = genetic_map
         self.chunk_size = chunk_size
         self.max_missing_rate = max_missing_rate
+        self.carry_format_fields = carry_format_fields
         self.n_samples = len(vcf_paths)
 
     # ------------------------------------------------------------------
@@ -130,6 +211,10 @@ class PerSampleVCFReader:
         chunk_positions: list[int] = []
         chunk_cm: list[float] = []
         chunk_info: list[VariantInfo] = []
+        # One list-of-arrays per extra FORMAT field: field → [array_per_variant]
+        chunk_fmt: dict[str, list[np.ndarray]] = {
+            f: [] for f in self.carry_format_fields
+        }
 
         skipped_missing = 0
         total_seen = 0
@@ -153,7 +238,7 @@ class PerSampleVCFReader:
                 continue
 
             v0 = variants[0]
-            cm = float(self.genetic_map.bp_to_cm(np.array([v0.POS]))[0])
+            cm = float(self.genetic_map.bp_to_cm(v0.POS))
 
             chunk_dosages.append(dosages)
             chunk_positions.append(v0.POS)
@@ -165,17 +250,32 @@ class PerSampleVCFReader:
                 alts=list(v0.ALT),
                 id=v0.ID or ".",
                 qual=v0.QUAL,
-                filters=list(v0.FILTER) if v0.FILTER else [],
+                filters=v0.FILTER.split(";") if v0.FILTER else [],
                 cm_pos=cm,
             ))
 
+            # Collect extra FORMAT fields as VCF-ready strings (object dtype).
+            # Using strings handles both single-value (AF, DP) and multi-value
+            # (AD = "ref,alt") fields uniformly, and avoids htslib sentinel issues.
+            for field_name in self.carry_format_fields:
+                vals = np.array(
+                    [_get_format_str(v, field_name) for v in variants],
+                    dtype=object,
+                )
+                chunk_fmt[field_name].append(vals)
+
             if len(chunk_dosages) == self.chunk_size:
-                yield self._make_pool(chunk_dosages, chunk_positions, chunk_cm, chunk_info)
+                yield self._make_pool(
+                    chunk_dosages, chunk_positions, chunk_cm, chunk_info, chunk_fmt
+                )
                 chunk_dosages, chunk_positions, chunk_cm, chunk_info = [], [], [], []
+                chunk_fmt = {f: [] for f in self.carry_format_fields}
 
         # Yield the final partial chunk
         if chunk_dosages:
-            yield self._make_pool(chunk_dosages, chunk_positions, chunk_cm, chunk_info)
+            yield self._make_pool(
+                chunk_dosages, chunk_positions, chunk_cm, chunk_info, chunk_fmt
+            )
 
         for r in readers:
             r.close()
@@ -185,6 +285,26 @@ class PerSampleVCFReader:
                 "Skipped %d / %d variants due to high missing rate (>%.0f%%)",
                 skipped_missing, total_seen, self.max_missing_rate * 100,
             )
+
+    def iter_positions(self) -> np.ndarray:
+        """
+        Return all variant positions on self.chromosome from the first per-sample VCF.
+
+        No missing-rate filter is applied; this is a lightweight first pass that
+        collects only POS values for region detection.  The full genotype pass
+        (with filtering) happens later in iter_chunks().
+
+        Returns
+        -------
+        np.ndarray, int64, shape (n_variants,)
+            Sorted array of base-pair positions.
+        """
+        reader = VCF(str(self.vcf_paths[0]))
+        positions: list[int] = []
+        for v in self._region_iter(reader, self.vcf_paths[0], self.chromosome):
+            positions.append(v.POS)
+        reader.close()
+        return np.array(positions, dtype=np.int64)
 
     def get_header_vcf(self):
         """Return an open cyvcf2.VCF handle to the first file (for header extraction)."""
@@ -200,13 +320,20 @@ class PerSampleVCFReader:
         positions: list[int],
         cm_list: list[float],
         variant_info: list[VariantInfo],
+        fmt_data: dict[str, list[np.ndarray]] | None = None,
     ) -> GenotypePool:
         dosage_matrix = np.stack(dosages_list, axis=0)  # (n_variants, n_samples)
+        format_fields: dict[str, np.ndarray] = {}
+        if fmt_data:
+            for field_name, arrays in fmt_data.items():
+                if arrays:
+                    format_fields[field_name] = np.stack(arrays, axis=0)  # (n_variants, n_samples)
         return GenotypePool(
             dosages=dosage_matrix,
             positions=np.array(positions, dtype=np.int64),
             cm_pos=np.array(cm_list, dtype=np.float64),
             variant_info=variant_info,
+            format_fields=format_fields,
         )
 
     @staticmethod

@@ -53,21 +53,30 @@ class GenotypePool:
         Genetic positions in cM.
     variant_info : list[VariantInfo]
         Per-variant metadata (same length as n_variants).
+    format_fields : dict[str, np.ndarray]
+        Optional additional FORMAT fields to carry through to synthetic output.
+        Each entry maps a field name (e.g. ``"AF"``) to a float32 array of
+        shape ``(n_variants, n_samples)``.  NaN encodes a missing value.
+        Empty by default.
     """
 
     dosages: np.ndarray
     positions: np.ndarray
     cm_pos: np.ndarray
     variant_info: list[VariantInfo]
+    format_fields: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         n = len(self.variant_info)
-        assert self.dosages.shape[0] == n, (
-            f"dosages first dimension {self.dosages.shape[0]} != "
-            f"len(variant_info) {n}"
-        )
-        assert self.positions.shape == (n,)
-        assert self.cm_pos.shape == (n,)
+        if self.dosages.shape[0] != n:
+            raise ValueError(
+                f"dosages first dimension {self.dosages.shape[0]} != "
+                f"len(variant_info) {n}"
+            )
+        if self.positions.shape != (n,):
+            raise ValueError(f"positions shape {self.positions.shape} != ({n},)")
+        if self.cm_pos.shape != (n,):
+            raise ValueError(f"cm_pos shape {self.cm_pos.shape} != ({n},)")
 
     @property
     def n_variants(self) -> int:

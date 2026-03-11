@@ -77,7 +77,7 @@ class GeneticMap:
         np.ndarray, float64, same shape as *positions*.
         """
         return np.interp(
-            positions.astype(np.float64),
+            np.asarray(positions, dtype=np.float64),
             self.positions.astype(np.float64),
             self.cm_values,
         )

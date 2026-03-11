@@ -24,6 +24,7 @@ segments; no original individual's genome appears in the output intact.
    - [Shuffle sex chromosomes](#shuffle-sex-chromosomes)
    - [Process multiple chromosomes](#process-multiple-chromosomes)
    - [Per-sample WES/panel cohort pipeline](#per-sample-wespanel-cohort-pipeline)
+   - [Somatic VCFs (Mutect2 / tumor-only)](#somatic-vcfs-mutect2--tumor-only)
    - [Validate output](#validate-output)
    - [Programmatic use](#programmatic-use)
 5. [CLI reference](#cli-reference)
@@ -429,18 +430,9 @@ with `-n`), typically cutting runtime to one quarter of the sequential time.
 
 #### Prerequisites
 
-Input VCFs must already have had low-coverage variants removed. Filter to
-`FORMAT/DP >= 20` (or your chosen threshold) before running:
-
-```bash
-mkdir -p normalised_dp20/
-for f in per_sample/*.vcf.gz; do
-    base=$(basename "$f")
-    bcftools view -i 'FORMAT/DP>=20' "$f" \
-        -Oz -o "normalised_dp20/${base}"
-    tabix -p vcf "normalised_dp20/${base}"
-done
-```
+Input VCFs must be bgzipped (`.vcf.gz`). The depth filter is applied by the
+script itself via the `-d` flag (default `FORMAT/DP >= 20`); no manual
+pre-filtering step is needed.
 
 You also need one genetic map file per chromosome in a single directory.
 Download SHAPEIT5 GRCh38 maps:
@@ -463,23 +455,42 @@ done
 | `-m DIR` | required | Directory of per-chromosome genetic maps (`chr1.b38.gmap.gz`, …) |
 | `-s FILE` | none | Sex file (path sex); chrX is automatically restricted to female donors |
 | `-c CHROMS` | `1 2 … 22 X` | Space-separated list of chromosomes to process |
+| `-d INT` | `20` | Minimum `FORMAT/DP` to retain a variant. Use `100` for somatic panels. |
+| `-f FIELDS` | none | Comma-separated FORMAT fields to copy alongside GT (e.g. `AF,DP,AD`). |
+| `-p PATTERN` | `*.vcf.gz` | Glob pattern to select input files. Use e.g. `*tnhaplotyper2*` when a directory contains VCFs from multiple callers. |
 | `-n INT` | `nproc/2` | Number of chromosomes to process in parallel |
 | `-e PATH` | `/tmp/vshuffler-venv` | Path to v-shuffler virtual environment |
 | `-r` | off | Resume: skip chromosomes that already have output |
 | `-k` | off | Keep per-chromosome intermediate files after combining |
 
-#### Example
+#### Examples
+
+Germline WES cohort:
 
 ```bash
 bash scripts/run_shuffle_cohort.sh \
-    -i normalised_dp20/ \
+    -i per_sample/ \
     -o synthetic_output/ \
     -m maps/ \
     -s sex.txt \
     -n 4
 ```
 
-Output: one `synthetic_N.vcf.gz` per individual in `synthetic_output/`,
+Somatic panel (Mutect2 tumor-only, two callers in the same directory):
+
+```bash
+bash scripts/run_shuffle_cohort.sh \
+    -i /data/somatic/ \
+    -o synthetic_somatic/ \
+    -m maps/ \
+    -s sex.txt \
+    -d 100 \
+    -f "AF,DP,AD" \
+    -p "*tnhaplotyper2*" \
+    -n 4
+```
+
+Output: one `synthetic_N.vcf.gz` per individual in the output directory,
 each containing all 23 chromosomes (1–22 + X), bgzipped and tabix-indexed.
 
 Progress is logged to `synthetic_output/shuffle.log`. Each chromosome also
@@ -503,6 +514,81 @@ For each chromosome (in parallel):
 After all chromosomes complete, `bcftools concat` combines the per-chromosome
 synthetic VCFs into one genome-wide VCF per individual (also parallelised).
 Per-chromosome intermediates are deleted unless `-k` is passed.
+
+### Somatic VCFs (Mutect2 / tumor-only)
+
+shuffle works on somatic data — including Mutect2 run in **tumor-only mode**
+(no matched normal) — because tumor-only VCFs contain both germline SNPs and
+somatic mutations. The germline variants provide the shared site set needed for
+meaningful mixing; somatic mutations are treated as private rare variants and
+redistributed between synthetic individuals.
+
+**Key considerations:**
+
+- **DP threshold:** use `-d 100` rather than the germline default of 20. In a
+  targeted cancer panel, low-DP calls are typically off-target noise; the
+  on-target variants (the ones that matter) reliably have DP ≥ 100.
+- **Retain somatic fields:** pass `-f "AF,DP,AD"` to carry allele fraction,
+  depth, and allelic depths through to the synthetic output.
+  - `AF` (`Number=A`) — single float per alt allele e.g. `0.502`
+  - `DP` (`Number=1`) — total read depth e.g. `3932`
+  - `AD` (`Number=R`) — ref and alt allele depths as `"ref,alt"` e.g.
+    `"2028,1904"`. Both values are preserved.
+- **Mixed-caller directories:** if the same directory contains VCFs from
+  multiple callers (e.g. `*tnhaplotyper2*` and `*vs_TA2*`), use `-p` to
+  select only one. The vs_TA2 / tumor-normal files typically have a sample
+  column named `NORMAL` which causes `bcftools merge` to reject them as
+  duplicate sample names.
+- **FILTER field:** somatic VCFs use descriptive FILTER values
+  (`clustered_events;haplotype`, `weak_evidence`, etc.). These are correctly
+  preserved in the synthetic output — do **not** filter to PASS before
+  shuffling, as doing so would discard most of the germline SNPs that drive
+  the mixing.
+- **AF correlation validation:** restrict to MAF > 5% sites when validating
+  (same advice as germline panel data — the site set is dominated by private
+  somatic mutations at near-zero frequency).
+
+**Header cleanup:** the raw synthetic VCFs inherit the full source header
+(hundreds of `##contig` lines, `##GATKCommandLine`/`##SentieonCommandLine`,
+`##tumor_sample`, etc.). For release, strip identifying metadata with a
+post-processing step:
+
+```python
+# Keep: ##fileformat, ##FILTER, ##FORMAT (written fields only),
+#       ##contig (1-22+X), ##v-shuffler
+# Remove: ##GATKCommandLine, ##SentieonCommandLine, ##reference,
+#         ##tumor_sample, ##normal_sample, ##bcftools_*, ##INFO,
+#         unused ##FORMAT fields, all non-canonical contigs
+import gzip, re, pathlib, subprocess, tempfile, os
+
+KEEP_CHROMS = {str(i) for i in range(1, 23)} | {"X"}
+KEEP_FORMAT = {"GT", "AF", "DP", "AD"}   # match what was written
+
+def reheader(vcf: pathlib.Path) -> None:
+    r = subprocess.run(["bcftools", "view", "-h", str(vcf)],
+                       capture_output=True, text=True, check=True)
+    kept, seen_vs = [], False
+    for line in r.stdout.splitlines():
+        if line.startswith("##v-shuffler"):
+            if seen_vs: continue
+            seen_vs = True
+        m_fmt = re.match(r'##FORMAT=<ID=([^,>]+)', line)
+        m_ctg = re.match(r'##contig=<ID=([^,>]+)', line)
+        if m_fmt and m_fmt.group(1) not in KEEP_FORMAT: continue
+        if m_ctg and m_ctg.group(1) not in KEEP_CHROMS: continue
+        if any(line.startswith(p) for p in (
+            "##SentieonCommandLine", "##GATKCommandLine", "##reference=",
+            "##tumor_sample=", "##normal_sample=", "##bcftools_", "##INFO="
+        )): continue
+        kept.append(line)
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.hdr', delete=False) as f:
+        f.write("\n".join(kept) + "\n"); hdr = f.name
+    tmp = str(vcf) + ".rh.vcf.gz"
+    subprocess.run(["bcftools","reheader","-h",hdr,"-o",tmp,str(vcf)], check=True, capture_output=True)
+    subprocess.run(["tabix","-p","vcf",tmp], check=True, capture_output=True)
+    os.replace(tmp, str(vcf)); os.replace(tmp+".tbi", str(vcf)+".tbi")
+    os.unlink(hdr)
+```
 
 ### Validate output
 
@@ -991,7 +1077,7 @@ reader = PerSampleVCFReader(
     genetic_map=gmap,
     chunk_size=50_000,
     max_missing_rate=0.05,
-    carry_format_fields=("AF",),   # optional; copies AF field into pool.format_fields
+    carry_format_fields=("AF", "DP", "AD"),  # optional; copies fields into pool.format_fields
 )
 
 # Lightweight first pass: collect positions for region detection
@@ -1003,15 +1089,24 @@ for pool in reader.iter_chunks():
     # pool.positions    : np.ndarray (V,),   int64   — 1-based bp positions
     # pool.cm_pos       : np.ndarray (V,),   float64
     # pool.variant_info : list[VariantInfo], length V
-    # pool.format_fields: dict[str, np.ndarray (V, N) float32] — e.g. {"AF": ...}
+    # pool.format_fields: dict[str, np.ndarray (V, N) object] — VCF-ready strings
+    #   e.g. {"AF": [["0.502", ".", ...]], "AD": [["1904,3028", ".", ...]]}
     process(pool)
 ```
 
-**`carry_format_fields`** — optional tuple of FORMAT field names (e.g.
-`("AF",)`) to read from each donor VCF and store in `pool.format_fields`.
-Each field is a float32 array of shape `(n_variants, n_donors)`; NaN encodes
-missing values. Multi-value fields (e.g. Mutect2 `AF` with `Number=A`) use
-the first element. When empty (the default), `pool.format_fields` is `{}`.
+**`carry_format_fields`** — optional tuple of FORMAT field names to read from
+each donor VCF and store in `pool.format_fields`. Values are stored as
+**VCF-ready strings** in object-dtype numpy arrays of shape
+`(n_variants, n_donors)`:
+
+- Single-value fields (`Number=1` or `Number=A` after biallelic normalisation):
+  stored as e.g. `"0.502"`, `"127"`, or `"."` for missing.
+- Multi-value fields (`Number=R` such as `AD`): stored as comma-separated
+  strings e.g. `"1904,3028"` (ref depth, alt depth).
+- htslib's missing-integer sentinel (`-2147483648`) is mapped to `"."` at
+  read time.
+
+When empty (the default), `pool.format_fields` is `{}`.
 
 **`iter_positions()`** opens only the first VCF file, applies no
 missing-rate filter, and returns a plain position array. It is used by the
@@ -1101,9 +1196,10 @@ final_paths = writer.finalize()  # bgzip + tabix; returns list of .vcf.gz paths
 All output genotypes are **unphased** (`/` separator).
 
 **FORMAT field carry-through:** when `synthetic_fields` is provided to
-`write_chunk`, the FORMAT column changes from `GT` to `GT:AF` (etc.) and
-each per-sample value becomes e.g. `0/1:0.4531`. Integer-valued fields
-(e.g. DP) are written without a decimal point; NaN is written as `.`.
+`write_chunk`, the FORMAT column changes from `GT` to `GT:AF:DP:AD` (etc.)
+and per-sample values are written as e.g. `0/1:0.502:3932:2028,1904`.
+The field values are passed through as-is from the VCF-ready strings stored
+in `pool.format_fields` — no additional formatting is applied.
 
 **Header handling:** copies all header lines from the template VCF, strips
 `##sample=` metadata, replaces sample column names, and prepends a
@@ -1127,7 +1223,7 @@ pool = GenotypePool(
     cm_pos=np.array(..., dtype=np.float64),
     variant_info=[VariantInfo(chrom, pos, ref, alts, id, qual, filters, cm_pos), ...],
     # optional: FORMAT fields carried through from source VCFs
-    format_fields={"AF": np.array(..., dtype=np.float32)},  # shape (V, N)
+    format_fields={"AF": np.array([["0.502"], ["."]], dtype=object)},  # shape (V, N)
 )
 
 pool.n_variants  # int
@@ -1137,10 +1233,12 @@ pool.n_samples   # int
 `VariantInfo` stores per-site metadata: `chrom`, `pos` (1-based), `ref`,
 `alts` (list), `id`, `qual`, `filters`, `cm_pos`.
 
-`format_fields` is an optional dict mapping FORMAT field names to float32
-arrays of shape `(n_variants, n_samples)`. NaN encodes missing values.
+`format_fields` is an optional dict mapping FORMAT field names to
+**object-dtype numpy arrays of VCF-ready strings**, shape
+`(n_variants, n_samples)`. Single-value fields are stored as `"0.502"`;
+multi-value fields (`Number=R` like `AD`) as `"1904,3028"`; missing as `"."`.
 Populated by `PerSampleVCFReader` when `carry_format_fields` is set; empty
-dict otherwise. The mosaic builder copies these arrays alongside the dosage
+dict otherwise. The mosaic builder copies these strings alongside the dosage
 matrix using the same segment-assignment logic.
 
 ---
@@ -1720,6 +1818,9 @@ the dosage representation unambiguous. See
 | All variants in one region | `--region-gap` too large | Decrease `--region-gap`; or use `--no-region-sampling` |
 | Warning: processing chrX without --sex-file | Mixed-sex cohort risk | Add `--sex-file` pointing to a donor-sex file; safe to ignore for same-sex cohorts |
 | Error: no female donors found for chrX | Sex file has no F entries matching the input VCFs | Check file paths in sex file; use basename or full path consistently |
+| `bcftools merge` fails with "Duplicate sample names" | Multiple VCFs in the directory share a sample name (e.g. `NORMAL` from tumor-normal callers) | Use `-p PATTERN` to select only one caller (e.g. `-p "*tnhaplotyper2*"`) |
+| AD shows only one value (e.g. `1904` not `1904,3028`) | Input VCFs not biallelic-normalised before running | Run `bcftools norm -m -any --keep-sum AD` first |
+| FILTER values mangled (e.g. `P;A;S;S`) | Input VCFs processed by an old version of shuffle | Upgrade to current version; FILTER is now parsed correctly |
 
 ---
 

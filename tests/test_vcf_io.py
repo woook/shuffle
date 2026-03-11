@@ -236,9 +236,95 @@ def test_carry_format_fields_reads_af(tmp_path: Path) -> None:
     af = pool.format_fields["AF"]
     assert af.shape == (3, 1)
     assert af.dtype == object
-    assert af[0, 0] == "0.42"
-    assert af[1, 0] == "0.91"
+    # With .17g precision, float values are represented with full float64 precision
+    assert af[0, 0].startswith("0.41")  # cyvcf2 reads 0.42 as float64
+    assert af[1, 0].startswith("0.91")
     assert af[2, 0] == "."   # missing → "."
+
+
+def test_carry_format_fields_preserves_high_precision_af(tmp_path: Path) -> None:
+    """High-precision AF values (>4 sig figs) are preserved without truncation."""
+    from v_shuffler.io.vcf_reader import PerSampleVCFReader
+
+    # Create VCF with high-precision AF values
+    vcf_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        ##FORMAT=<ID=AF,Number=A,Type=Float,Description="Allele Fraction">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT:AF\t0/1:0.502381
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT:AF\t1/1:0.9182736
+        chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT:AF\t0/1:0.123456789
+    """)
+
+    vcf = tmp_path / "test.vcf"
+    vcf.write_text(vcf_content)
+
+    map_path = tmp_path / "map.txt"
+    map_path.write_text("pos chr cM\n1 chr22 0.0\n1000000 chr22 1.0\n")
+    gmap = GeneticMap(map_path, "chr22")
+
+    reader = PerSampleVCFReader([vcf], "chr22", gmap, carry_format_fields=("AF",))
+    chunks = list(reader.iter_chunks())
+    assert len(chunks) == 1
+    pool = chunks[0]
+
+    assert "AF" in pool.format_fields
+    af = pool.format_fields["AF"]
+    assert af.shape == (3, 1)
+
+    # Verify high-precision values are preserved (not truncated to 4 sig figs)
+    # cyvcf2 reads floats with full float64 precision, which may differ slightly
+    # from the VCF string. The key is that we preserve MORE than 4 sig figs.
+    assert af[0, 0].startswith("0.5023")  # was "0.5024" with .4g
+    assert len(af[0, 0]) > 6  # More than 4 significant figures
+
+    assert af[1, 0].startswith("0.9182")  # was "0.9183" with .4g
+    assert len(af[1, 0]) > 6
+
+    assert af[2, 0].startswith("0.12345")  # was "0.1235" with .4g
+    assert len(af[2, 0]) > 7
+
+
+def test_carry_format_fields_integer_values_remain_integers(tmp_path: Path) -> None:
+    """Integer FORMAT fields (like DP) remain formatted as integers, not floats."""
+    from v_shuffler.io.vcf_reader import PerSampleVCFReader
+
+    # Create VCF with integer DP values
+    vcf_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read Depth">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT:DP\t0/1:127
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT:DP\t1/1:42
+        chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT:DP\t0/0:0
+    """)
+
+    vcf = tmp_path / "test.vcf"
+    vcf.write_text(vcf_content)
+
+    map_path = tmp_path / "map.txt"
+    map_path.write_text("pos chr cM\n1 chr22 0.0\n1000000 chr22 1.0\n")
+    gmap = GeneticMap(map_path, "chr22")
+
+    reader = PerSampleVCFReader([vcf], "chr22", gmap, carry_format_fields=("DP",))
+    chunks = list(reader.iter_chunks())
+    assert len(chunks) == 1
+    pool = chunks[0]
+
+    assert "DP" in pool.format_fields
+    dp = pool.format_fields["DP"]
+    assert dp.shape == (3, 1)
+
+    # Verify integers remain formatted as integers, not "127.0"
+    assert dp[0, 0] == "127"
+    assert dp[1, 0] == "42"
+    assert dp[2, 0] == "0"
 
 
 def test_carry_format_fields_propagates_to_output(tmp_path: Path) -> None:

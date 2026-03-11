@@ -106,6 +106,8 @@ def _gt_to_dosage(gt: list) -> int:
 _HTSLIB_MISSING_INT = -2_147_483_648  # htslib sentinel for missing integer FORMAT fields
 
 
+# Full float64 precision (.17g) preserves all significant digits from source VCF.
+# Typical allele fractions (0.502381) are stored without truncation.
 def _fmt_val(v: float) -> str:
     """Format a single numeric value as a VCF string, mapping sentinels to '.'."""
     if v != v:  # NaN
@@ -114,7 +116,7 @@ def _fmt_val(v: float) -> str:
         return "."
     if v >= 0 and v == int(v):
         return str(int(v))
-    return f"{v:.4g}"
+    return f"{v:.17g}"  # Full float64 precision (15-17 significant digits)
 
 
 def _get_format_str(variant, field_name: str) -> str:

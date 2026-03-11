@@ -1,0 +1,87 @@
+{
+  "somatic": {
+    "configuration": {
+      "cohort": "somatic",
+      "log_files_analyzed": 25,
+      "region_sampling_enabled": true,
+      "region_counts": [],
+      "min_donors_values": [
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1
+      ],
+      "donor_pool_sizes": [],
+      "sex_filtering": true,
+      "format_fields": [],
+      "chromosomes": [
+        "X"
+      ],
+      "min_donors_mode": 1
+    },
+    "risk_assessment": {
+      "overall_risk": "LOW",
+      "risk_factors": [
+        "Low min_donors setting (1) - allows primary donor dominance"
+      ],
+      "protective_factors": [
+        "Region-sampling mode enabled (reduces P2 attack rate from ~100% to ~5%)"
+      ],
+      "recommendations": [
+        "Consider increasing min_donors to \u22655 for future cohorts"
+      ]
+    }
+  },
+  "germline": {
+    "configuration": {
+      "cohort": "germline",
+      "log_files_analyzed": 2,
+      "region_sampling_enabled": true,
+      "region_counts": [],
+      "min_donors_values": [
+        1,
+        1
+      ],
+      "donor_pool_sizes": [],
+      "sex_filtering": true,
+      "format_fields": [],
+      "chromosomes": [
+        "X"
+      ],
+      "min_donors_mode": 1
+    },
+    "risk_assessment": {
+      "overall_risk": "LOW",
+      "risk_factors": [
+        "Low min_donors setting (1) - allows primary donor dominance"
+      ],
+      "protective_factors": [
+        "Region-sampling mode enabled (reduces P2 attack rate from ~100% to ~5%)"
+      ],
+      "recommendations": [
+        "Consider increasing min_donors to \u22655 for future cohorts"
+      ]
+    }
+  }
+}

@@ -2,8 +2,7 @@
 """
 Phase 1: Sample Selection for Anonymisation Quality Assessment
 
-Selects 10% of samples from each cohort using stratified random sampling
-to ensure chromosome diversity.
+Selects 10% of samples from each cohort using simple random sampling.
 """
 
 import random
@@ -14,10 +13,10 @@ from typing import Dict, List
 # Set random seed for reproducibility
 random.seed(42)
 
-# Configuration
-SOMATIC_DIR = Path("/home/wook/Downloads/v-s/h/s")
-GERMLINE_DIR = Path("/home/wook/Downloads/v-s/w")
-OUTPUT_DIR = Path("/home/wook/Documents/shuffle/assessment/results")
+# Configuration - Update these paths for your environment
+SOMATIC_DIR = Path("/home/wook/Downloads/v-s/h/s")  # Path to somatic synthetic VCFs
+GERMLINE_DIR = Path("/home/wook/Downloads/v-s/w")  # Path to germline synthetic VCFs
+OUTPUT_DIR = Path("/home/wook/Documents/shuffle/assessment/results")  # Output directory
 
 # Sample counts
 TOTAL_SOMATIC = 168
@@ -155,12 +154,10 @@ def main():
 
         f.write("SOMATIC COHORT (h/s) - 17 samples:\n")
         for sample_id in somatic_samples:
-            vcf_path = SOMATIC_DIR / f"synthetic_{sample_id}.vcf.gz"
             f.write(f"  synthetic_{sample_id}.vcf.gz\n")
 
         f.write("\nGERMLINE COHORT (w) - 14 samples:\n")
         for sample_id in germline_samples:
-            vcf_path = GERMLINE_DIR / f"synthetic_{sample_id}.vcf.gz"
             f.write(f"  synthetic_{sample_id}.vcf.gz\n")
 
     print(f"Sample list saved to: {text_output}")

@@ -21,7 +21,7 @@ See `results/FINAL_RISK_ASSESSMENT.md` for the complete report.
 
 ## Directory Structure
 
-```
+```text
 assessment/
 ├── scripts/                      # Analysis scripts
 │   ├── 1_select_samples.py       # Phase 1: Random sample selection
@@ -118,7 +118,7 @@ assessment/
 ## Methodology
 
 ### Phase 1: Sample Selection
-- **Method**: Stratified random sampling (seed=42)
+- **Method**: Simple random sampling (seed=42)
 - **Sample size**: 10% of each cohort (31 total)
 - **Tool**: `scripts/1_select_samples.py`
 
@@ -126,13 +126,13 @@ assessment/
 - **Metrics**:
   - Variant counts, missing rates, genotype distributions
   - Heterozygosity rates
-  - Ti/Tv ratios
+  - Ti/Tv ratios (site-level: based on REF/ALT, same across all samples)
   - MAF spectrum (binned: 0-1%, 1-5%, 5-10%, 10-25%, 25-50%)
   - FORMAT field consistency (somatic only)
 - **Tools**: cyvcf2, numpy, pandas
 - **Script**: `scripts/2_compute_metrics.py`
 
-### Phase 2.3: Hardy-Weinberg Equilibrium
+### Phase 3: Hardy-Weinberg Equilibrium
 - **Method**: Chi-square test per variant
 - **Aggregation**: Multi-sample genotypes per variant position
 - **Tool**: scipy.stats

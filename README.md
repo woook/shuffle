@@ -155,7 +155,7 @@ biologically implausible output.
 
 The sex file is a plain two-column whitespace-delimited text file:
 
-```
+```text
 # path                           sex
 /data/samples/sample001.vcf.gz   F
 /data/samples/sample002.vcf.gz   M
@@ -186,7 +186,7 @@ The resolved name flows through consistently to the genetic map lookup, tabix
 queries, the writer's provenance header, and the output filename in
 `multi_sample` mode. A log message is emitted whenever a translation occurs:
 
-```
+```text
 INFO  Chromosome name normalised from 'chr22' to '22' to match VCF convention.
 ```
 
@@ -223,7 +223,7 @@ Both plain text and `.gz` files are supported. The chromosome column may use
 
 **Recommended source — SHAPEIT5 GRCh38 maps:**
 
-```
+```text
 https://github.com/odelaneau/shapeit5/tree/main/maps/b38
 ```
 
@@ -340,7 +340,7 @@ awk '{print $2".vcf.gz", $5}' cohort.fam > sex.txt
 
 Or write it manually:
 
-```
+```text
 /data/donors/sample001.vcf.gz  F
 /data/donors/sample002.vcf.gz  M
 /data/donors/sample003.vcf.gz  F
@@ -701,7 +701,8 @@ writer = SyntheticVCFWriter(
     version="0.1.0",
 )
 for pool in reader.iter_chunks():
-    writer.write_chunk(pool, build_synthetic_genotypes(pool, plans))
+    dosages, fields = build_synthetic_genotypes(pool, plans)
+    writer.write_chunk(pool, dosages, fields)
 writer.finalize()
 ```
 

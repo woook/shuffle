@@ -5,6 +5,8 @@ synthetic output individual is a diploid mosaic of genotype segments drawn
 from different real donors. Local linkage disequilibrium is preserved within
 segments; no original individual's genome appears in the output intact.
 
+> **📊 New to shuffle?** See [ALGORITHM_FLOWCHART.md](ALGORITHM_FLOWCHART.md) for a visual overview of how it works.
+
 ---
 
 ## Table of contents
@@ -1826,6 +1828,10 @@ the dosage representation unambiguous. See
 ---
 
 ## Further details
+
+For a high-level visual overview of the algorithm (flowchart and key concepts):
+
+[ALGORITHM_FLOWCHART.md](ALGORITHM_FLOWCHART.md)
 
 For a deep-dive into the codebase — including annotated data-flow diagrams,
 key design decisions, and worked examples — see the technical walkthrough:

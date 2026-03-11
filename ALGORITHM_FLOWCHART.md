@@ -4,29 +4,30 @@
 
 ```mermaid
 flowchart TD
-    Start([Start: Anonymise VCF]) --> Input[/"📁 Inputs:<br/>• Donor VCF files (N individuals)<br/>• Genetic map (bp → cM)<br/>• Config (# synthetics, mode)"/]
+    Start([Start: Anonymise VCF]) --> Input[/"📁 Inputs:<br/>• Donor VCF files (N individuals)<br/>  (filtered by sex for chrX/chrY if --sex-file provided)<br/>• Genetic map (bp → cM)<br/>• Config (# synthetics, mode)"/]
 
-    Input --> Mode{Region-sampling<br/>or Continuous?}
+    Input --> Normalize["🔄 Normalize Chromosome Name<br/>Detect VCF convention (chr22 vs 22)"]
+    Normalize --> Mode{Region-sampling<br/>or Continuous?}
 
     %% Region-sampling path (targeted panels)
-    Mode -->|Region-sampling<br/>targeted panel| DetectRegions["🔍 Detect Regions<br/>Group variants by gaps > 1 Mb"]
+    Mode -->|Region-sampling<br/>targeted panel| DetectRegions["🔍 Detect Regions<br/>Group variants by gaps > 10 kb<br/>(configurable via --region-gap)"]
     DetectRegions --> SimCrossRegion["🎲 Simulate Crossovers<br/>Random breakpoints between regions"]
-    SimCrossRegion --> BuildPlanRegion["📋 Build Segment Plans<br/>Assign one donor per region<br/>(adjacency constraint)"]
+    SimCrossRegion --> BuildPlanRegion["📋 Build Segment Plans<br/>Assign one donor per region<br/>(without-replacement for first min_donors regions,<br/>then adjacency constraint only)"]
 
     %% Continuous path (WGS/WES)
-    Mode -->|Continuous<br/>WGS/WES| SimCrossCont["🎲 Simulate Crossovers<br/>Poisson process on genetic map<br/>(~1 per 100 cM)"]
+    Mode -->|Continuous<br/>WGS/WES| SimCrossCont["🎲 Simulate Crossovers<br/>Poisson(λ = map_length / 100 cM)<br/>(e.g., chr22 ~50cM → λ=0.5)"]
     SimCrossCont --> BuildPlanCont["📋 Build Segment Plans<br/>Assign one donor per segment<br/>(adjacency constraint)"]
 
     %% Merge paths
     BuildPlanRegion --> MinDonors{Min donors<br/>met?}
     BuildPlanCont --> MinDonors
-    MinDonors -->|No| AddBreakpoint["➕ Add random breakpoint"]
+    MinDonors -->|No| AddBreakpoint["➕ Add ONE random breakpoint<br/>(rebuild plan & recheck)"]
     AddBreakpoint --> MinDonors
     MinDonors -->|Yes| Assemble
 
-    Assemble["🧬 Assemble Synthetic Genotypes<br/>For each variant:<br/>• Find which segment it's in<br/>• Copy dosage from assigned donor<br/>• Copy FORMAT fields (if requested)"]
+    Assemble["🧬 Assemble Synthetic Genotypes<br/>For each variant (skip if >5% missing):<br/>• Find segment (inclusive start/end boundaries)<br/>• Copy dosage from assigned donor<br/>• Fill uncovered variants with MISSING<br/>• Copy FORMAT fields as VCF-ready strings<br/>  (handles single & multi-value fields like AF, AD)"]
 
-    Assemble --> Output[/"📤 Output:<br/>• Synthetic VCF (GT + FORMAT)<br/>• Each synthetic = mosaic of real donors<br/>• No phasing preserved"/]
+    Assemble --> Output[/"📤 Output:<br/>• Synthetic VCF (unphased GT + FORMAT)<br/>• Each synthetic = mosaic of real donors"/]
 
     Output --> End([✅ End: Anonymised VCF])
 
@@ -34,6 +35,7 @@ flowchart TD
     style End fill:#e1f5e1
     style Input fill:#e3f2fd
     style Output fill:#e3f2fd
+    style Normalize fill:#e8f5e9
     style Mode fill:#fff3e0
     style MinDonors fill:#fff3e0
     style Assemble fill:#f3e5f5
@@ -52,7 +54,8 @@ flowchart TD
 
 ### 2. **Crossover Simulation**
 - Mimics meiotic recombination using a genetic map
-- Poisson process: ~1 crossover per 100 cM (continuous mode)
+- Poisson process: λ = map_length / 100 cM (continuous mode)
+  - Example: chr22 ~50 cM → λ = 0.5 crossovers on average
 - Random breakpoints between regions (region-sampling mode)
 
 ### 3. **Adjacency Constraint**

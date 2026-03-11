@@ -20,11 +20,15 @@ regardless of how sparse the panel is.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 import numpy as np
 
 from v_shuffler.io.genetic_map import GeneticMap
+
+# Safety limit for min_donors enforcement loop to prevent infinite hangs
+MAX_MIN_DONOR_ITERATIONS = 1000
 
 
 @dataclass(frozen=True)
@@ -207,10 +211,23 @@ def generate_all_segment_plans(
         # The adjacency-only constraint in build_segment_plan can cause donor cycling
         # (e.g. A→B→A with 3 segments).  Add extra breakpoints one at a time until
         # the distinct-donor count reaches effective_min.
+        iteration_count = 0
         while len({seg.sample_idx for seg in plan}) < effective_min:
+            if iteration_count >= MAX_MIN_DONOR_ITERATIONS:
+                achieved = len({seg.sample_idx for seg in plan})
+                logger = logging.getLogger(__name__)
+                logger.warning(
+                    "Could not achieve min_donors=%d for synthetic individual "
+                    "(reached %d distinct donors after %d iterations with %d pool samples). "
+                    "Consider reducing --min-donors or increasing donor pool size.",
+                    effective_min, achieved, MAX_MIN_DONOR_ITERATIONS, n_pool_samples,
+                )
+                break
+
             extra = rng.uniform(genetic_map.start_cm, genetic_map.end_cm, size=1)
             breakpoints = np.sort(np.concatenate([breakpoints, extra]))
             plan = build_segment_plan(breakpoints, genetic_map, n_pool_samples, rng)
+            iteration_count += 1
         plans.append(plan)
     return plans
 

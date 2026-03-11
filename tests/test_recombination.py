@@ -321,6 +321,47 @@ class TestRegionSampling:
             distinct = len({seg.sample_idx for seg in plan})
             assert distinct <= 3
 
+    def test_continuous_min_donors_iteration_limit_exists(self, gmap: GeneticMap) -> None:
+        """Verify that the iteration limit constant exists and code completes quickly."""
+        import time
+        from v_shuffler.core.recombination import MAX_MIN_DONOR_ITERATIONS
+
+        # Verify the constant exists and has expected value
+        assert MAX_MIN_DONOR_ITERATIONS == 1000
+
+        # Test that code completes quickly even with challenging parameters
+        # (pool size barely meets min_donors, increasing cycling risk)
+        rng = make_rng(42)
+        start_time = time.time()
+
+        plans = generate_all_segment_plans(
+            n_output_samples=5, genetic_map=gmap, n_pool_samples=4,
+            rng=rng, lambda_override=0.0, min_donors=4,
+        )
+
+        elapsed = time.time() - start_time
+
+        # Should complete quickly (not hang), proving the safety limit works
+        assert elapsed < 2.0
+        assert len(plans) == 5
+
+        # All plans should have at most min_donors distinct donors
+        for plan in plans:
+            distinct = len({seg.sample_idx for seg in plan})
+            assert distinct <= 4
+
+    def test_continuous_min_donors_typical_case_succeeds(self, gmap: GeneticMap) -> None:
+        """Normal case (pool=20, min_donors=5) succeeds without hitting limit."""
+        rng = make_rng(23)
+        plans = generate_all_segment_plans(
+            n_output_samples=10, genetic_map=gmap, n_pool_samples=20,
+            rng=rng, lambda_override=0.0, min_donors=5,
+        )
+        # All plans should achieve the requested minimum
+        for plan in plans:
+            distinct = len({seg.sample_idx for seg in plan})
+            assert distinct >= 5
+
     # --- Integration test ---
 
     def test_region_plan_end_to_end_no_missing(self, gmap: GeneticMap) -> None:

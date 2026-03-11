@@ -94,19 +94,27 @@ def load_sex_map(sex_file: Path, vcf_paths: list[Path]) -> dict[Path, str]:
                     f"got {len(parts)} in line {line!r}"
                 )
             path_str, sex_raw = parts[0], parts[1]
-            # Skip header rows gracefully (e.g. "path sex").
+            # Skip an explicit header row (e.g. "path sex") on line 1 only, and
+            # only when the path column doesn't look like a real VCF path.  A
+            # typo in the sex label of a real donor row on line 1 would otherwise
+            # be silently swallowed, producing a confusing "no donors found" error
+            # later rather than pointing at the bad line.
             try:
                 sex = parse_sex_label(sex_raw)
             except ValueError:
-                if lineno == 1:
-                    # Treat as a header and skip silently.
-                    continue
+                looks_like_path = path_str.endswith(".vcf.gz") or "/" in path_str
+                if lineno == 1 and not looks_like_path:
+                    continue  # genuine header row, skip silently
                 raise ValueError(
                     f"{sex_file}:{lineno}: unrecognised sex label {sex_raw!r}"
                 ) from None
             raw_map[path_str] = sex
 
     # Second pass: match each supplied VCF path against the raw map.
+    # Detect duplicate basenames up front so we can warn on ambiguous fallback.
+    basenames = [p.name for p in vcf_paths]
+    duplicate_basenames = {b for b in basenames if basenames.count(b) > 1}
+
     result: dict[Path, str] = {}
     for vcf_path in vcf_paths:
         full_key = str(vcf_path)
@@ -114,6 +122,13 @@ def load_sex_map(sex_file: Path, vcf_paths: list[Path]) -> dict[Path, str]:
         if full_key in raw_map:
             result[vcf_path] = raw_map[full_key]
         elif base_key in raw_map:
+            if base_key in duplicate_basenames:
+                logger.warning(
+                    "Ambiguous basename match for %s — multiple donor VCFs share "
+                    "this filename; use full paths in the sex file to avoid "
+                    "incorrect sex assignment.",
+                    base_key,
+                )
             result[vcf_path] = raw_map[base_key]
         else:
             logger.warning(

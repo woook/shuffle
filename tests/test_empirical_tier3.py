@@ -194,7 +194,7 @@ def test_b5_pca(
     donor_2d = donor_arr[:, :2]
     synth_2d = synth_arr[:, :2]
     centroid = donor_2d.mean(axis=0)
-    cov_inv = np.linalg.inv(np.cov(donor_2d.T))
+    cov_inv = np.linalg.pinv(np.cov(donor_2d.T))  # pinv handles singular/near-singular cov
 
     mahal = np.array(
         [mahalanobis(s, centroid, cov_inv) for s in synth_2d]

@@ -365,6 +365,65 @@ class TestRegionSampling:
         assert synth.shape == (n_variants, 3)
         assert not np.any(synth == MISSING)
 
+    def test_region_detection_with_missing_rate_filtering(self) -> None:
+        """Region detection should only see variants that pass missing-rate filter."""
+        import tempfile
+        from pathlib import Path
+        from v_shuffler.io.vcf_reader import PerSampleVCFReader
+        from v_shuffler.io.genetic_map import GeneticMap
+
+        # Create VCFs with bridge variant (position 300) having high missing rate
+        # Without filtering: positions 100, 200, 300, 400 → single region
+        # With filtering: positions 100, 200, 400 → two regions (gap at 300)
+        vcf0 = textwrap.dedent("""\
+            ##fileformat=VCFv4.1
+            ##contig=<ID=chr22,length=51304566>
+            ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+            #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE0
+            chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT\t0/1
+            chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT\t1/1
+            chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT\t./.
+            chr22\t400\t.\tT\tC\t.\tPASS\t.\tGT\t0/1
+        """)
+
+        vcf1 = textwrap.dedent("""\
+            ##fileformat=VCFv4.1
+            ##contig=<ID=chr22,length=51304566>
+            ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+            #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1
+            chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT\t0/0
+            chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT\t0/1
+            chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT\t./.
+            chr22\t400\t.\tT\tC\t.\tPASS\t.\tGT\t1/1
+        """)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            p0 = Path(tmpdir) / "s0.vcf"
+            p1 = Path(tmpdir) / "s1.vcf"
+            p0.write_text(vcf0)
+            p1.write_text(vcf1)
+
+            map_path = Path(tmpdir) / "map.txt"
+            map_path.write_text("pos chr cM\n1 chr22 0.0\n1000000 chr22 1.0\n")
+            gmap = GeneticMap(map_path, "chr22")
+
+            reader = PerSampleVCFReader(
+                vcf_paths=[p0, p1],
+                chromosome="chr22",
+                genetic_map=gmap,
+                max_missing_rate=0.5,  # Position 300: 100% missing → filtered
+            )
+
+            # iter_positions should filter position 300
+            positions = reader.iter_positions()
+            assert list(positions) == [100, 200, 400]
+
+            # Region detection with gap_threshold < 200 should split into 2 regions
+            regions = detect_regions(positions, gap_threshold_bp=150)
+            assert len(regions) == 2
+            assert regions[0] == (100, 200)
+            assert regions[1] == (400, 400)
+
 
 # ---------------------------------------------------------------------------
 # Property-based tests (Hypothesis)

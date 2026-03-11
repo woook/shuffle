@@ -288,22 +288,39 @@ class PerSampleVCFReader:
 
     def iter_positions(self) -> np.ndarray:
         """
-        Return all variant positions on self.chromosome from the first per-sample VCF.
+        Return variant positions that pass missing-rate filtering.
 
-        No missing-rate filter is applied; this is a lightweight first pass that
-        collects only POS values for region detection.  The full genotype pass
-        (with filtering) happens later in iter_chunks().
+        Applies the same max_missing_rate filter as iter_chunks() to ensure
+        region detection sees exactly the variants that will be processed.
+        This prevents incorrect region merging when bridge variants between
+        regions are filtered out during the main genotype pass.
 
         Returns
         -------
         np.ndarray, int64, shape (n_variants,)
-            Sorted array of base-pair positions.
+            Sorted array of base-pair positions that pass the missing-rate filter.
         """
-        reader = VCF(str(self.vcf_paths[0]))
+        readers = [VCF(str(p)) for p in self.vcf_paths]
+        iterators = [
+            self._region_iter(r, p, self.chromosome)
+            for r, p in zip(readers, self.vcf_paths)
+        ]
+
         positions: list[int] = []
-        for v in self._region_iter(reader, self.vcf_paths[0], self.chromosome):
-            positions.append(v.POS)
-        reader.close()
+        for variants in zip(*iterators):
+            dosages = np.empty(self.n_samples, dtype=np.uint8)
+            for s_idx, v in enumerate(variants):
+                dosages[s_idx] = _gt_to_dosage(v.genotypes[0])
+
+            n_missing = int(np.sum(dosages == MISSING))
+            if n_missing / self.n_samples > self.max_missing_rate:
+                continue
+
+            positions.append(variants[0].POS)
+
+        for r in readers:
+            r.close()
+
         return np.array(positions, dtype=np.int64)
 
     def get_header_vcf(self):

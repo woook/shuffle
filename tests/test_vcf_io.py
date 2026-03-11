@@ -446,3 +446,119 @@ def test_reader_site_mismatch_raises(tmp_path: Path, gmap: GeneticMap) -> None:
     )
     with pytest.raises(ValueError, match="Site mismatch"):
         list(reader.iter_chunks())
+
+
+def test_iter_positions_respects_missing_rate_filter(tmp_path: Path, gmap: GeneticMap) -> None:
+    """iter_positions() filters high-missing variants like iter_chunks()."""
+    from v_shuffler.io.vcf_reader import PerSampleVCFReader
+
+    # Create 3 samples with 5 variants
+    # Variant at position 300: 2/3 samples missing (66.7% missing rate)
+    # Should be filtered with max_missing_rate=0.5
+    vcf0_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE0
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT\t0/1
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT\t1/1
+        chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT\t./.
+        chr22\t400\t.\tT\tC\t.\tPASS\t.\tGT\t0/1
+        chr22\t500\t.\tA\tT\t.\tPASS\t.\tGT\t1/1
+    """)
+
+    vcf1_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT\t0/0
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT\t0/1
+        chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT\t./.
+        chr22\t400\t.\tT\tC\t.\tPASS\t.\tGT\t1/1
+        chr22\t500\t.\tA\tT\t.\tPASS\t.\tGT\t0/1
+    """)
+
+    vcf2_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE2
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT\t1/1
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT\t0/0
+        chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT\t0/1
+        chr22\t400\t.\tT\tC\t.\tPASS\t.\tGT\t0/0
+        chr22\t500\t.\tA\tT\t.\tPASS\t.\tGT\t0/0
+    """)
+
+    vcf0 = tmp_path / "s0.vcf"
+    vcf1 = tmp_path / "s1.vcf"
+    vcf2 = tmp_path / "s2.vcf"
+    vcf0.write_text(vcf0_content)
+    vcf1.write_text(vcf1_content)
+    vcf2.write_text(vcf2_content)
+
+    reader = PerSampleVCFReader(
+        vcf_paths=[vcf0, vcf1, vcf2],
+        chromosome="chr22",
+        genetic_map=gmap,
+        max_missing_rate=0.5,  # 50% threshold
+    )
+
+    # iter_positions() should filter position 300 (66.7% missing)
+    positions = reader.iter_positions()
+    assert list(positions) == [100, 200, 400, 500]
+
+
+def test_iter_positions_matches_iter_chunks_filtering(tmp_path: Path, gmap: GeneticMap) -> None:
+    """Positions from iter_positions() exactly match those in iter_chunks()."""
+    from v_shuffler.io.vcf_reader import PerSampleVCFReader
+
+    # Create 2 samples with varying missing rates
+    vcf0_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE0
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT\t0/1
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT\t./.
+        chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT\t1/1
+        chr22\t400\t.\tT\tC\t.\tPASS\t.\tGT\t0/1
+    """)
+
+    vcf1_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT\t0/0
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT\t./.
+        chr22\t300\t.\tG\tA\t.\tPASS\t.\tGT\t0/1
+        chr22\t400\t.\tT\tC\t.\tPASS\t.\tGT\t1/1
+    """)
+
+    vcf0 = tmp_path / "s0.vcf"
+    vcf1 = tmp_path / "s1.vcf"
+    vcf0.write_text(vcf0_content)
+    vcf1.write_text(vcf1_content)
+
+    reader = PerSampleVCFReader(
+        vcf_paths=[vcf0, vcf1],
+        chromosome="chr22",
+        genetic_map=gmap,
+        max_missing_rate=0.3,
+    )
+
+    # Get positions from both methods
+    positions_from_iter = reader.iter_positions()
+    chunks = list(reader.iter_chunks())
+    positions_from_chunks = np.concatenate([chunk.positions for chunk in chunks])
+
+    # Must match exactly (variant 200 filtered: 100% missing)
+    assert np.array_equal(positions_from_iter, positions_from_chunks)
+    assert list(positions_from_iter) == [100, 300, 400]

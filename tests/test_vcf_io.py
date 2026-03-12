@@ -236,9 +236,12 @@ def test_carry_format_fields_reads_af(tmp_path: Path) -> None:
     af = pool.format_fields["AF"]
     assert af.shape == (3, 1)
     assert af.dtype == object
-    # With .17g precision, float values are represented with full float64 precision
-    assert af[0, 0].startswith("0.41")  # cyvcf2 reads 0.42 as float64
-    assert af[1, 0].startswith("0.91")
+    # With .17g precision, float values are represented with full float64 precision.
+    # Note: cyvcf2 converts VCF strings to float64 during parsing, so "0.42"
+    # becomes 0.41999999999999998 (standard binary representation limitation).
+    # We preserve THIS float64 value, not the original VCF string.
+    assert af[0, 0].startswith("0.41")  # cyvcf2 reads "0.42" as 0.419999...
+    assert af[1, 0].startswith("0.91")  # cyvcf2 reads "0.91" as 0.909999...
     assert af[2, 0] == "."   # missing → "."
 
 
@@ -275,17 +278,25 @@ def test_carry_format_fields_preserves_high_precision_af(tmp_path: Path) -> None
     af = pool.format_fields["AF"]
     assert af.shape == (3, 1)
 
-    # Verify high-precision values are preserved (not truncated to 4 sig figs)
-    # cyvcf2 reads floats with full float64 precision, which may differ slightly
-    # from the VCF string. The key is that we preserve MORE than 4 sig figs.
-    assert af[0, 0].startswith("0.5023")  # was "0.5024" with .4g
-    assert len(af[0, 0]) > 6  # More than 4 significant figures
+    # Verify high-precision values are preserved (not truncated to 4 sig figs).
+    # The key test is that output has MORE than 4 significant figures.
+    # cyvcf2 parses VCF floats to binary float64, which may differ slightly
+    # from the VCF string (e.g., "0.502381" → 0.50238099999999997).
+    assert af[0, 0] != "0.5024"  # .4g would give this
+    assert af[0, 0].startswith("0.5023")
+    val0 = float(af[0, 0])
+    assert pytest.approx(val0, rel=1e-6) == 0.502381
+    assert len(af[0, 0].replace(".", "")) > 4  # More than 4 significant figures
 
-    assert af[1, 0].startswith("0.9182")  # was "0.9183" with .4g
-    assert len(af[1, 0]) > 6
+    assert af[1, 0] != "0.9183"  # .4g would give this
+    assert af[1, 0].startswith("0.9182")
+    val1 = float(af[1, 0])
+    assert pytest.approx(val1, rel=1e-6) == 0.9182736
 
-    assert af[2, 0].startswith("0.12345")  # was "0.1235" with .4g
-    assert len(af[2, 0]) > 7
+    assert af[2, 0] != "0.1235"  # .4g would give this
+    assert af[2, 0].startswith("0.12345")
+    val2 = float(af[2, 0])
+    assert pytest.approx(val2, rel=1e-6) == 0.123456789
 
 
 def test_carry_format_fields_integer_values_remain_integers(tmp_path: Path) -> None:
@@ -325,6 +336,83 @@ def test_carry_format_fields_integer_values_remain_integers(tmp_path: Path) -> N
     assert dp[0, 0] == "127"
     assert dp[1, 0] == "42"
     assert dp[2, 0] == "0"
+
+
+def test_carry_format_fields_handles_infinity_values(tmp_path: Path) -> None:
+    """Infinity values in FORMAT fields are converted to missing ('.') instead of crashing."""
+    from v_shuffler.io.vcf_reader import PerSampleVCFReader
+    import numpy as np
+
+    # Create VCF with special float values via direct API since VCF doesn't support inf
+    # We'll test the _fmt_val function directly for this critical edge case
+    from v_shuffler.io.vcf_reader import _fmt_val
+
+    # Test infinity handling (prevents OverflowError: cannot convert float infinity to integer)
+    assert _fmt_val(float('inf')) == "."
+    assert _fmt_val(float('-inf')) == "."
+
+    # Verify NaN still works
+    assert _fmt_val(float('nan')) == "."
+
+    # Verify normal values still work
+    assert _fmt_val(0.502381) != "."
+    assert _fmt_val(127.0) == "127"
+
+
+def test_carry_format_fields_negative_integers_remain_integers(tmp_path: Path) -> None:
+    """Negative integer FORMAT values are formatted as integers, not floats."""
+    from v_shuffler.io.vcf_reader import _fmt_val
+
+    # Test negative integers (e.g., phred-scaled scores, quality offsets)
+    # Note: The current logic `if v >= 0 and v == int(v)` means negatives
+    # use .17g path, but .17g correctly formats -127.0 as "-127"
+    assert _fmt_val(-127.0) == "-127"
+    assert _fmt_val(-42.0) == "-42"
+    assert _fmt_val(-1.0) == "-1"
+
+    # Verify they're formatted as integers, not floats with .17g
+    assert ".0" not in _fmt_val(-127.0)
+    assert ".0" not in _fmt_val(-1.0)
+
+
+def test_carry_format_fields_scientific_notation_small_values(tmp_path: Path) -> None:
+    """Very small AF values are formatted in scientific notation when appropriate."""
+    from v_shuffler.io.vcf_reader import PerSampleVCFReader
+
+    # Create VCF with very small AF values (low coverage scenarios)
+    vcf_content = textwrap.dedent("""\
+        ##fileformat=VCFv4.1
+        ##FILTER=<ID=PASS,Description="All filters passed">
+        ##contig=<ID=chr22,length=51304566>
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        ##FORMAT=<ID=AF,Number=A,Type=Float,Description="Allele Fraction">
+        #CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\tFORMAT\tSAMPLE1
+        chr22\t100\t.\tA\tG\t.\tPASS\t.\tGT:AF\t0/1:0.0000000001
+        chr22\t200\t.\tC\tT\t.\tPASS\t.\tGT:AF\t0/1:0.00000123
+    """)
+
+    vcf = tmp_path / "test.vcf"
+    vcf.write_text(vcf_content)
+
+    map_path = tmp_path / "map.txt"
+    map_path.write_text("pos chr cM\n1 chr22 0.0\n1000000 chr22 1.0\n")
+    gmap = GeneticMap(map_path, "chr22")
+
+    reader = PerSampleVCFReader([vcf], "chr22", gmap, carry_format_fields=("AF",))
+    chunks = list(reader.iter_chunks())
+    assert len(chunks) == 1
+    pool = chunks[0]
+
+    assert "AF" in pool.format_fields
+    af = pool.format_fields["AF"]
+
+    # Verify scientific notation is used for very small values
+    # .17g uses scientific notation for abs(x) < 1e-4
+    assert "e" in af[0, 0].lower() or af[0, 0] == "1e-10"
+
+    # Verify the values can be parsed back to floats
+    assert float(af[0, 0]) < 1e-6
+    assert float(af[1, 0]) < 1e-4
 
 
 def test_carry_format_fields_propagates_to_output(tmp_path: Path) -> None:

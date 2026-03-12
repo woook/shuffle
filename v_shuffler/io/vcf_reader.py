@@ -17,6 +17,7 @@ Design choices:
 from __future__ import annotations
 
 import logging
+import math
 from pathlib import Path
 from typing import Iterator
 
@@ -106,15 +107,21 @@ def _gt_to_dosage(gt: list) -> int:
 _HTSLIB_MISSING_INT = -2_147_483_648  # htslib sentinel for missing integer FORMAT fields
 
 
+# Use .17g precision to preserve full float64 representation after cyvcf2
+# parsing. While this doesn't preserve the original VCF string (cyvcf2
+# converts to float64), it ensures lossless round-trip and prevents the
+# precision loss caused by .4g (0.502381 → 0.5024).
 def _fmt_val(v: float) -> str:
     """Format a single numeric value as a VCF string, mapping sentinels to '.'."""
     if v != v:  # NaN
         return "."
     if v == _HTSLIB_MISSING_INT:
         return "."
+    if not math.isfinite(v):  # inf/-inf → "."
+        return "."
     if v >= 0 and v == int(v):
         return str(int(v))
-    return f"{v:.4g}"
+    return f"{v:.17g}"  # 17 digits needed for lossless float64 round-trip (DBL_DECIMAL_DIG)
 
 
 def _get_format_str(variant, field_name: str) -> str:

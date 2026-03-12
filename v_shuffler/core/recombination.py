@@ -20,11 +20,21 @@ regardless of how sparse the panel is.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 import numpy as np
 
 from v_shuffler.io.genetic_map import GeneticMap
+
+# Safety limit for the min_donors enforcement loop in generate_all_segment_plans().
+# The adjacency constraint in build_segment_plan() can cause donor cycling
+# (e.g. A→B→A→B...) that prevents reaching the requested min_donors count.
+# If this limit is reached, behavior depends on strict mode:
+#   - strict=True (default): Raises RuntimeError with diagnostic message
+#   - strict=False: Logs warning and accepts the achieved donor count
+# Value chosen to allow ~1000 extra crossover attempts before giving up.
+MAX_MIN_DONOR_ITERATIONS = 1000
 
 
 @dataclass(frozen=True)
@@ -164,6 +174,7 @@ def generate_all_segment_plans(
     rng: np.random.Generator,
     lambda_override: float | None = None,
     min_donors: int = 1,
+    strict: bool = True,
 ) -> list[list[Segment]]:
     """
     Pre-generate segment plans for all synthetic output samples.
@@ -186,16 +197,26 @@ def generate_all_segment_plans(
         Minimum number of distinct donors per synthetic.  If the Poisson draw
         produces fewer breakpoints than required, extra breakpoints are added
         uniformly at random within the map range.
+    strict : bool
+        If True (default), raises RuntimeError when min_donors cannot be achieved.
+        If False, emits warning and continues with partial mixing.
 
     Returns
     -------
     list[list[Segment]]
         One segment plan per output sample.
         segment_plans[i] is the list of Segment objects for synthetic individual i.
+
+    Raises
+    ------
+    RuntimeError
+        If strict=True and min_donors cannot be achieved after MAX_MIN_DONOR_ITERATIONS.
     """
     effective_min = min(min_donors, n_pool_samples)
     plans: list[list[Segment]] = []
-    for _ in range(n_output_samples):
+    failures: list[tuple[int, int]] = []  # (synthetic_idx, achieved_count)
+
+    for synth_idx in range(n_output_samples):
         breakpoints = simulate_crossover_breakpoints(genetic_map, rng, lambda_override)
         # Ensure enough breakpoints for effective_min segments.
         required_bps = max(0, effective_min - 1)
@@ -207,11 +228,46 @@ def generate_all_segment_plans(
         # The adjacency-only constraint in build_segment_plan can cause donor cycling
         # (e.g. A→B→A with 3 segments).  Add extra breakpoints one at a time until
         # the distinct-donor count reaches effective_min.
+        iteration_count = 0
         while len({seg.sample_idx for seg in plan}) < effective_min:
+            if iteration_count >= MAX_MIN_DONOR_ITERATIONS:
+                achieved = len({seg.sample_idx for seg in plan})
+                failures.append((synth_idx, achieved))
+                break
+
             extra = rng.uniform(genetic_map.start_cm, genetic_map.end_cm, size=1)
             breakpoints = np.sort(np.concatenate([breakpoints, extra]))
             plan = build_segment_plan(breakpoints, genetic_map, n_pool_samples, rng)
+            iteration_count += 1
         plans.append(plan)
+
+    # Handle failures: raise exception or emit aggregate warning
+    if failures:
+        min_achieved = min(count for _, count in failures)
+        max_achieved = max(count for _, count in failures)
+        failure_msg = (
+            f"{len(failures)}/{n_output_samples} synthetic individuals failed to achieve min_donors={effective_min}. "
+            f"Achieved donors ranged from {min_achieved} to {max_achieved} "
+            f"(pool size: {n_pool_samples}, iterations: {MAX_MIN_DONOR_ITERATIONS})."
+        )
+
+        if strict:
+            raise RuntimeError(
+                f"{failure_msg}\n"
+                f"This indicates the requested min_donors is too high for the available pool size "
+                f"or chromosome length. Please:\n"
+                f"  1. Reduce --min-donors (try {max_achieved})\n"
+                f"  2. Increase donor pool size (need at least {effective_min} donors)\n"
+                f"  3. Use --allow-partial-mixing to emit warning instead (privacy trade-off)\n"
+                f"  4. Use --no-region-sampling if currently in region mode"
+            )
+        else:
+            logger = logging.getLogger(__name__)
+            logger.error(
+                "%s Output quality is COMPROMISED. "
+                "Consider reducing --min-donors or increasing pool size.",
+                failure_msg,
+            )
     return plans
 
 

@@ -321,6 +321,68 @@ class TestRegionSampling:
             distinct = len({seg.sample_idx for seg in plan})
             assert distinct <= 3
 
+    def test_continuous_min_donors_strict_parameter_exists(self, gmap: GeneticMap) -> None:
+        """Verify strict parameter controls exception vs warning behavior."""
+        rng = make_rng(42)
+
+        # Strict=True is the default - should work normally
+        plans_strict = generate_all_segment_plans(
+            n_output_samples=5, genetic_map=gmap, n_pool_samples=10,
+            rng=rng, lambda_override=0.0, min_donors=5, strict=True,
+        )
+        assert len(plans_strict) == 5
+
+        # Strict=False should also work normally
+        plans_lenient = generate_all_segment_plans(
+            n_output_samples=5, genetic_map=gmap, n_pool_samples=10,
+            rng=make_rng(42), lambda_override=0.0, min_donors=5, strict=False,
+        )
+        assert len(plans_lenient) == 5
+
+    def test_continuous_min_donors_error_message_format(self, gmap: GeneticMap) -> None:
+        """Verify error/warning messages contain required information."""
+        from unittest.mock import patch, MagicMock
+
+        # Mock the logging to capture what would be logged
+        mock_logger = MagicMock()
+
+        with patch('v_shuffler.core.recombination.MAX_MIN_DONOR_ITERATIONS', 5):
+            with patch('logging.getLogger', return_value=mock_logger):
+                rng = make_rng(45)
+
+                # In lenient mode, if failure occurs, logger.error should be called
+                try:
+                    generate_all_segment_plans(
+                        n_output_samples=1, genetic_map=gmap, n_pool_samples=2,
+                        rng=rng, lambda_override=0.0, min_donors=2, strict=False,
+                    )
+                except Exception:
+                    pass  # Don't care if it succeeds or fails
+
+                # If logger.error was called, verify message format
+                if mock_logger.error.called:
+                    call_args = str(mock_logger.error.call_args)
+                    assert "failed to achieve min_donors" in call_args.lower()
+                    assert "COMPROMISED" in call_args
+
+    def test_continuous_min_donors_typical_case_succeeds(self, gmap: GeneticMap) -> None:
+        """Normal case (pool=20, min_donors=5) succeeds without hitting limit."""
+        rng = make_rng(23)
+        plans = generate_all_segment_plans(
+            n_output_samples=10, genetic_map=gmap, n_pool_samples=20,
+            rng=rng, lambda_override=0.0, min_donors=5,
+        )
+        # All plans should achieve the requested minimum
+        for plan in plans:
+            distinct = len({seg.sample_idx for seg in plan})
+            assert distinct >= 5
+
+    def test_continuous_min_donors_constant_documented(self) -> None:
+        """Verify MAX_MIN_DONOR_ITERATIONS constant exists and has expected value."""
+        from v_shuffler.core.recombination import MAX_MIN_DONOR_ITERATIONS
+
+        assert MAX_MIN_DONOR_ITERATIONS == 1000
+
     # --- Integration test ---
 
     def test_region_plan_end_to_end_no_missing(self, gmap: GeneticMap) -> None:

@@ -136,6 +136,14 @@ def main() -> None:
     help="Minimum distinct donors per synthetic individual.",
 )
 @click.option(
+    "--allow-partial-mixing", is_flag=True, default=False,
+    help=(
+        "Allow synthetics with fewer than --min-donors (emits warning instead of error). "
+        "By default, the pipeline fails if min_donors cannot be achieved, ensuring privacy guarantees. "
+        "Use this flag only if you understand the privacy implications of partial mixing."
+    ),
+)
+@click.option(
     "--sex-file", default=None, type=click.Path(exists=True),
     help=(
         "Two-column file mapping donor VCF paths to sex (F/M). "
@@ -167,6 +175,7 @@ def shuffle(
     region_sampling: bool,
     region_gap: int,
     min_donors: int,
+    allow_partial_mixing: bool,
     sex_file: str | None,
     carry_format_fields: str,
     verbose: bool,
@@ -201,6 +210,7 @@ def shuffle(
         region_sampling=region_sampling,
         region_gap_bp=region_gap,
         min_donors_per_synthetic=min_donors,
+        strict_min_donors=not allow_partial_mixing,
         sex_file=Path(sex_file) if sex_file is not None else None,
         carry_format_fields=parsed_fields,
     )
@@ -315,6 +325,7 @@ def _run_shuffle(config: ShufflerConfig) -> None:
             rng=rng,
             lambda_override=config.n_crossovers_lambda,
             min_donors=config.min_donors_per_synthetic,
+            strict=config.strict_min_donors,
         )
 
     avg_segs = sum(len(p) for p in segment_plans) / max(len(segment_plans), 1)
@@ -330,6 +341,7 @@ def _run_shuffle(config: ShufflerConfig) -> None:
         seed=config.seed,
         chromosome=chrom,
         version=__version__,
+        min_donors=config.min_donors_per_synthetic if config.min_donors_per_synthetic > 1 else None,
     )
 
     logger.info("Streaming variants and building synthetic genotypes ...")

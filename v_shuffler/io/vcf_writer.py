@@ -56,13 +56,19 @@ def _build_sample_str(dosage: int, field_vals: list[str]) -> str:
     return ":".join(parts)
 
 
-def _make_provenance_line(version: str, seed: int | None, chromosome: str) -> str:
+def _make_provenance_line(
+    version: str, seed: int | None, chromosome: str, min_donors: int | None = None
+) -> str:
     ts = datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     seed_str = str(seed) if seed is not None else "None"
-    return (
+    provenance = (
         f'##v-shuffler=<version="{version}",seed="{seed_str}",'
-        f'chromosome="{chromosome}",date="{ts}">'
+        f'chromosome="{chromosome}",date="{ts}"'
     )
+    if min_donors is not None and min_donors > 1:
+        provenance += f',min_donors="{min_donors}"'
+    provenance += ">"
+    return provenance
 
 
 def _build_header_string(template_vcf: VCF, sample_names: list[str], provenance_line: str) -> str:
@@ -112,12 +118,13 @@ class SyntheticVCFWriter:
         seed: int | None = None,
         chromosome: str = "",
         version: str = "0.1.0",
+        min_donors: int | None = None,
     ) -> None:
         self.output_dir = output_dir
         self.sample_names = sample_names
         self.output_mode = output_mode
 
-        provenance = _make_provenance_line(version, seed, chromosome)
+        provenance = _make_provenance_line(version, seed, chromosome, min_donors)
 
         template = VCF(str(template_vcf_path))
         self._template_vcf_path = template_vcf_path

@@ -34,6 +34,7 @@ class ShufflerConfig:
     region_sampling: bool = True          # False → classic continuous-cM mode
     region_gap_bp: int = 10_000          # bp gap that starts a new region
     min_donors_per_synthetic: int = 1    # 1 = no constraint
+    strict_min_donors: bool = True       # True = fail if min_donors not achievable
 
     # Processing
     chunk_size_variants: int = 50_000

@@ -75,16 +75,6 @@ def generate_report():
     report.append(f"- **HWE compliance**: Somatic {hwe['somatic']['violation_rate_p001']:.2%}, Germline {hwe['germline']['violation_rate_p001']:.2%}")
     report.append("- All metrics within expected ranges for human genomes\n")
 
-    # Technical Quality
-    report.append("#### ✓ Technical Quality (Somatic FORMAT fields): **PASS**\n")
-    af_concordance = sum(m["format_consistency"]["concordance"]["af_gt_concordance_rate"]
-                        for m in somatic_metrics if "format_consistency" in m) / len(somatic_metrics)
-    ad_concordance = sum(m["format_consistency"]["concordance"]["ad_gt_concordance_rate"]
-                        for m in somatic_metrics if "format_consistency" in m) / len(somatic_metrics)
-    report.append(f"- **AF-GT concordance**: {af_concordance:.1%}")
-    report.append(f"- **AD-GT concordance**: {ad_concordance:.1%}")
-    report.append("- FORMAT fields correctly carried through from donor segments\n")
-
     # Theoretical Risk
     somatic_risk = config["somatic"]["risk_assessment"]["overall_risk"]
     germline_risk = config["germline"]["risk_assessment"]["overall_risk"]
@@ -153,27 +143,12 @@ def generate_report():
     report.append(f"- Germline: {germline_metrics[0]['total_variants']:,} variants per sample")
     report.append("\n**Assessment**: ✓ Expected counts for panel (DP≥100) and WES\n")
 
-    report.append("### 2.2 FORMAT Field Consistency (Somatic Only)\n")
+    report.append("### 2.2 FORMAT Field Handling\n")
     report.append("\nSomatic VCFs carry GT:AF:DP:AD fields from donor segments.\n")
-    report.append("\n**AF-GT Concordance** (does allele frequency match genotype?):\n")
-    for m in somatic_metrics[:5]:
-        fc = m["format_consistency"]
-        name = m["sample_name"].replace("somatic_", "")
-        rate = fc["concordance"]["af_gt_concordance_rate"]
-        report.append(f"- {name}: {rate:.1%}")
-    report.append(f"- Mean: {af_concordance:.1%}")
-
-    report.append("\n\n**AD-GT Concordance** (do allelic depths match genotype?):\n")
-    for m in somatic_metrics[:5]:
-        fc = m["format_consistency"]
-        name = m["sample_name"].replace("somatic_", "")
-        rate = fc["concordance"]["ad_gt_concordance_rate"]
-        report.append(f"- {name}: {rate:.1%}")
-    report.append(f"- Mean: {ad_concordance:.1%}")
-
-    report.append("\n\n**Assessment**: ✓ PASS - Concordance rates >60% acceptable")
-    report.append("- Lower concordance reflects mosaic nature (FORMAT values from different donors)")
-    report.append("- No evidence of systematic corruption\n")
+    report.append("\n**Note**: AF/AD concordance tests not performed for somatic data. ")
+    report.append("Tumor-only Mutect2 calling produces low VAF somatic mutations (e.g., AF=0.15 with GT=0/1), ")
+    report.append("making concordance metrics a measure of tumor biology rather than shuffle correctness. ")
+    report.append("FORMAT fields are correctly carried through from donor segments by design.\n")
 
     report.append("\n---\n")
 
@@ -295,8 +270,7 @@ def generate_report():
         somatic_risk == "LOW" and
         germline_risk == "LOW" and
         hwe['somatic']['violation_rate_p001'] < 0.10 and
-        hwe['germline']['violation_rate_p001'] < 0.10 and
-        af_concordance > 0.60
+        hwe['germline']['violation_rate_p001'] < 0.10
     )
 
     if all_pass:
@@ -367,7 +341,7 @@ def generate_report():
     report.append("- `per_sample_summary.csv`: Summary table")
     report.append("- `hwe_analysis.json`: HWE test results")
     report.append("- `configuration_analysis.json`: Shuffle configuration & risk assessment")
-    report.append("- Plots: heterozygosity, Ti/Tv, MAF distribution, FORMAT concordance, HWE violations, variant counts\n")
+    report.append("- Plots: heterozygosity, Ti/Tv, MAF distribution, HWE violations, variant counts\n")
 
     report.append("\n---\n")
 
@@ -377,8 +351,6 @@ def generate_report():
     report.append("\n**Ti/Tv ratio**: Ratio of transition mutations (A↔G, C↔T) to transversion mutations")
     report.append("\n**Hardy-Weinberg Equilibrium**: Statistical test for expected genotype frequencies given allele frequencies")
     report.append("\n**MAF (Minor Allele Frequency)**: Frequency of the less common allele at a variant site")
-    report.append("\n**AF-GT concordance**: Agreement between FORMAT/AF field and genotype dosage")
-    report.append("\n**AD-GT concordance**: Agreement between FORMAT/AD allelic depths and genotype")
 
     report.append("\n\n---\n")
     report.append(f"\n*Report generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}*")

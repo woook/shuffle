@@ -27,12 +27,6 @@ theoretical re-identification risk.
 - **HWE compliance**: Somatic 4.21%, Germline 6.20%
 - All metrics within expected ranges for human genomes
 
-#### ✓ Technical Quality (Somatic FORMAT fields): **PASS**
-
-- **AF-GT concordance**: 71.6%
-- **AD-GT concordance**: 60.9%
-- FORMAT fields correctly carried through from donor segments
-
 #### ✓ Theoretical Re-identification Risk: **LOW** (Somatic), **LOW** (Germline)
 
 - Region-sampling mode enabled (reduces P2 attack from ~100% to ~5%)
@@ -103,35 +97,16 @@ Expected violation rate: <3% ideal, <10% acceptable (higher rates expected with 
 
 **Assessment**: ✓ Expected counts for panel (DP≥100) and WES
 
-### 2.2 FORMAT Field Consistency (Somatic Only)
+### 2.2 FORMAT Field Handling
 
 
 Somatic VCFs carry GT:AF:DP:AD fields from donor segments.
 
 
-**AF-GT Concordance** (does allele frequency match genotype?):
-
-- synthetic_0: 69.3%
-- synthetic_1: 72.2%
-- synthetic_2: 72.0%
-- synthetic_3: 75.1%
-- synthetic_4: 72.9%
-- Mean: 71.6%
-
-
-**AD-GT Concordance** (do allelic depths match genotype?):
-
-- synthetic_0: 61.0%
-- synthetic_1: 62.3%
-- synthetic_2: 62.9%
-- synthetic_3: 61.8%
-- synthetic_4: 61.9%
-- Mean: 60.9%
-
-
-**Assessment**: ✓ PASS - Concordance rates >60% acceptable
-- Lower concordance reflects mosaic nature (FORMAT values from different donors)
-- No evidence of systematic corruption
+**Note**: AF/AD concordance tests not performed for somatic data. 
+Tumor-only Mutect2 calling produces low VAF somatic mutations (e.g., AF=0.15 with GT=0/1), 
+making concordance metrics a measure of tumor biology rather than shuffle correctness. 
+FORMAT fields are correctly carried through from donor segments by design.
 
 
 ---
@@ -359,7 +334,7 @@ Configuration analysis shows:
 - `per_sample_summary.csv`: Summary table
 - `hwe_analysis.json`: HWE test results
 - `configuration_analysis.json`: Shuffle configuration & risk assessment
-- Plots: heterozygosity, Ti/Tv, MAF distribution, FORMAT concordance, HWE violations, variant counts
+- Plots: heterozygosity, Ti/Tv, MAF distribution, HWE violations, variant counts
 
 
 ---
@@ -375,12 +350,8 @@ Configuration analysis shows:
 
 **MAF (Minor Allele Frequency)**: Frequency of the less common allele at a variant site
 
-**AF-GT concordance**: Agreement between FORMAT/AF field and genotype dosage
-
-**AD-GT concordance**: Agreement between FORMAT/AD allelic depths and genotype
-
 
 ---
 
 
-*Report generated: 2026-03-12 10:49:09*
+*Report generated: 2026-03-12 10:55:40*

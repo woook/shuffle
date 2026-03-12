@@ -139,7 +139,10 @@ def generate_report():
         hwe_status = "⚠ CAUTION - Violation rates exceed 10%"
 
     report.append(f"\n**Assessment**: {hwe_status}")
-    report.append("- Synthetic genotypes follow expected population genetic patterns\n")
+    if somatic_hwe_rate < 0.10 and germline_hwe_rate < 0.10:
+        report.append("- Synthetic genotypes follow expected population genetic patterns\n")
+    else:
+        report.append("- HWE violations exceed acceptable threshold and require investigation\n")
 
     report.append("\n---\n")
 
@@ -303,19 +306,22 @@ def generate_report():
             "No evidence of systematic quality issues",
             "Region-sampling mode provides strong protection against P2 attacks",
             "NHS threat model: No adversary access to original donor genotypes",
-            "Theoretical re-identification risk: LOW for both cohorts",
-            "",
-            "> **Scope**: This approval applies to the threat model and validation surface described in this assessment. See Section 4 (Limitations) for constraints on this assessment."
+            "Theoretical re-identification risk: LOW for both cohorts"
         ]
+        scope_note = "> **Scope**: This approval applies to the threat model and validation surface described in this assessment. See Section 4 (Limitations) for constraints on this assessment."
     else:
         recommendation = "⚠ **CONDITIONAL APPROVAL**"
         rationale = ["See detailed findings above"]
+        scope_note = None
 
     report.append(f"\n### {recommendation}\n")
 
     report.append("\n**Rationale**:\n")
     for point in rationale:
         report.append(f"- {point}")
+
+    if scope_note:
+        report.append(f"\n\n{scope_note}")
 
     report.append("\n\n### Recommended Controls\n")
     report.append("1. **Access restrictions**: Limit to authorised NHS bioinformaticians only")
@@ -356,7 +362,8 @@ def generate_report():
     report.append("- matplotlib 3.10.8\n")
 
     report.append("\n### Files Generated")
-    report.append("- `per_sample_metrics.json`: Detailed metrics for all 31 samples")
+    total_samples = len(somatic_metrics) + len(germline_metrics)
+    report.append(f"- `per_sample_metrics.json`: Detailed metrics for all {total_samples} samples")
     report.append("- `per_sample_summary.csv`: Summary table")
     report.append("- `hwe_analysis.json`: HWE test results")
     report.append("- `configuration_analysis.json`: Shuffle configuration & risk assessment")

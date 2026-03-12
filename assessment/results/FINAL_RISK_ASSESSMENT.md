@@ -303,8 +303,9 @@ Configuration analysis shows:
 - Region-sampling mode provides strong protection against P2 attacks
 - NHS threat model: No adversary access to original donor genotypes
 - Theoretical re-identification risk: LOW for both cohorts
-- 
-- > **Scope**: This approval applies to the threat model and validation surface described in this assessment. See Section 4 (Limitations) for constraints on this assessment.
+
+
+> **Scope**: This approval applies to the threat model and validation surface described in this assessment. See Section 4 (Limitations) for constraints on this assessment.
 
 
 ### Recommended Controls
@@ -354,7 +355,7 @@ Configuration analysis shows:
 
 
 ### Files Generated
-- `per_sample_metrics.json`: Detailed metrics for all 31 samples
+- `per_sample_metrics.json`: Detailed metrics for all 306 samples
 - `per_sample_summary.csv`: Summary table
 - `hwe_analysis.json`: HWE test results
 - `configuration_analysis.json`: Shuffle configuration & risk assessment
@@ -382,4 +383,4 @@ Configuration analysis shows:
 ---
 
 
-*Report generated: 2026-03-12 09:56:24*
+*Report generated: 2026-03-12 10:49:09*

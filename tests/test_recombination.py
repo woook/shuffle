@@ -374,7 +374,7 @@ class TestRegionSampling:
 
         # Create VCFs with bridge variant (position 300) having high missing rate
         # Without filtering: positions 100, 200, 300, 400 → single region
-        # With filtering: positions 100, 200, 400 → two regions (gap at 300)
+        # With filtering: positions 100, 200, 400 → two regions (200bp gap between 200-400)
         vcf0 = textwrap.dedent("""\
             ##fileformat=VCFv4.1
             ##contig=<ID=chr22,length=51304566>

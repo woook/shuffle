@@ -21,8 +21,8 @@ OUTPUT_DIR = Path("/home/wook/Documents/shuffle/assessment/results")  # Output d
 # Sample counts
 TOTAL_SOMATIC = 168
 TOTAL_GERMLINE = 138
-SOMATIC_SAMPLE_SIZE = 17  # 10% of 168
-GERMLINE_SAMPLE_SIZE = 14  # 10% of 138
+SOMATIC_SAMPLE_SIZE = 168  # 100% of 168
+GERMLINE_SAMPLE_SIZE = 138  # 100% of 138
 
 
 def random_sample_selection(total_samples: int, sample_size: int,
@@ -102,9 +102,9 @@ def main():
     # Save selection results
     selection_data = {
         "metadata": {
-            "description": "10% sample selection for anonymisation assessment",
+            "description": "100% sample selection for anonymisation assessment",
             "random_seed": 42,
-            "selection_date": "2026-03-11"
+            "selection_date": "2026-03-12"
         },
         "somatic": {
             "cohort_name": "h_somatic",
@@ -143,11 +143,11 @@ def main():
         f.write("ANONYMISATION ASSESSMENT - SELECTED SAMPLES\n")
         f.write("=" * 80 + "\n\n")
 
-        f.write("SOMATIC COHORT (h/s) - 17 samples:\n")
+        f.write(f"SOMATIC COHORT (h/s) - {len(somatic_samples)} samples:\n")
         for sample_id in somatic_samples:
             f.write(f"  synthetic_{sample_id}.vcf.gz\n")
 
-        f.write("\nGERMLINE COHORT (w) - 14 samples:\n")
+        f.write(f"\nGERMLINE COHORT (w) - {len(germline_samples)} samples:\n")
         for sample_id in germline_samples:
             f.write(f"  synthetic_{sample_id}.vcf.gz\n")
 

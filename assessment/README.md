@@ -1,19 +1,16 @@
 # Shuffle Anonymisation Quality Assessment
 
-**Date**: 2026-03-11
-**Assessment Type**: Synthetic VCF Validation
+## Summary
 
-## Executive Summary
+This directory contains a comprehensive anonymisation quality assessment of synthetic VCF files generated using the shuffle tool.
 
-This directory contains a comprehensive anonymisation quality assessment of synthetic VCF files generated using the shuffle tool. The assessment evaluated 31 samples (10% of two cohorts) and found:
+### **Assessment** 
 
-### ✓ **APPROVED** (within assessed scope)
+- **Biological Plausibility**: HWE compliance, normal het rates, expected Ti/Tv
+- **Technical Quality**: FORMAT field consistency maintained
+- **Theoretical Identification Risk**: Effectiveness of region-sampling mode with no access to original genotypes
 
-- **Biological Plausibility**: PASS (HWE compliance, normal het rates, expected Ti/Tv)
-- **Technical Quality**: PASS (FORMAT field consistency maintained)
-- **Theoretical Risk**: LOW (region-sampling mode, no donor access)
-
-> **Scope**: This approval applies to the threat model and validation surface described below. See [Limitations](#limitations) for constraints on this assessment.
+> **Scope**: This assessment applies to the threat model and validation surface described below. See [Limitations](#limitations) for constraints on this assessment.
 
 See `results/FINAL_RISK_ASSESSMENT.md` for the complete report.
 
@@ -57,71 +54,11 @@ assessment/
 
 ---
 
-## Cohorts Assessed
-
-### Somatic Panel (h/s)
-- **Full cohort**: 168 samples
-- **Assessed**: 17 samples (10%)
-- **Data type**: Tumor-only Mutect2, targeted panel
-- **Chromosomes**: 1-22 + X
-- **FORMAT fields**: GT:AF:DP:AD
-- **Variant count**: ~108k per sample (post-DP≥100 filter)
-
-### Germline WES (w)
-- **Full cohort**: 138 samples
-- **Assessed**: 14 samples (10%)
-- **Data type**: Whole exome sequencing
-- **Chromosomes**: 1-22 + X
-- **FORMAT fields**: GT only
-- **Variant count**: ~1.07M per sample
-
----
-
-## Key Findings
-
-### 1. Biological Plausibility ✓ PASS
-
-| Metric | Somatic | Germline | Expected | Status |
-|--------|---------|----------|----------|--------|
-| Heterozygosity | 5.28% | 9.35% | 5-12% | ✓ PASS |
-| Ti/Tv ratio | 1.430 | 2.202 | 2.0-2.1 (WES) | ✓/⚠ |
-| HWE violations (p<0.001) | 0.87% | 0.87% | <3% | ✓ PASS |
-
-**Note**: Somatic Ti/Tv is lower due to tumor-only calling mode (artifacts), not a shuffle issue.
-
-### 2. Technical Quality ✓ PASS
-
-- **FORMAT field concordance** (somatic):
-  - AF-GT: 71.6% (allele frequency matches genotype)
-  - AD-GT: 60.7% (allelic depths match genotype)
-  - Lower concordance expected due to mosaic construction from multiple donors
-
-### 3. Theoretical Risk: LOW
-
-**Configuration**:
-- ✓ Region-sampling mode enabled (default)
-- ⚠ Min donors: 1 (default; recommend ≥5 for future)
-- ✓ Donor pools: 168 (somatic), 138 (germline)
-- ✓ Average segments: 2-4 per chromosome
-
-**Risk Assessment**:
-- **P2 (Primary Donor Re-identification)**: LOW
-  - Region mode reduces attack success from ~100% to ~5%
-  - NHS has no access to original donor VCFs
-- **P4 (Membership Inference)**: LOW
-  - Requires adversary access to both synthetic and original donors
-  - Only reveals pool membership, not contribution
-- **P1 (Identity Leak)**: LOW (based on configuration)
-  - Cannot directly test without donor VCFs
-  - Population structure analysis recommended
-
----
-
 ## Methodology
 
 ### Phase 1: Sample Selection
-- **Method**: Simple random sampling (seed=42)
-- **Sample size**: 10% of each cohort (31 total)
+- **Method**: Use all samples or use simple random sampling (seed=42)
+- **Sample size**: As defined
 - **Tool**: `scripts/1_select_samples.py`
 
 ### Phase 2: Per-Sample Metrics
@@ -174,24 +111,6 @@ These analyses are recommended for future assessments but were not critical for 
 
 ---
 
-## Recommendations
-
-### For Current Cohorts (Approved for Use)
-1. **Implement access controls**: Restrict to authorised NHS bioinformaticians
-2. **Enable audit logging**: Track who accesses synthetic VCFs
-3. **Prevent redistribution**: Do not share outside NHS
-4. **Separate original donors**: Store original VCFs in separate location with different access controls
-5. **Periodic review**: Re-assess if new re-identification techniques emerge
-
-### For Future Cohorts
-1. **Increase `--min-donors` to ≥5**: Further reduces primary donor dominance
-2. **Complete population structure analysis**: Run PCA/IBS to rule out identity leaks definitively
-3. **Validate with held-out donors**: Use `shuffle validate` when feasible
-4. **Tune region counts**: Consider decreasing `--region-gap` threshold to increase region counts (>100). A smaller gap prevents merging nearby variants into single regions, yielding more detected regions and better mixing.
-5. **Document configuration**: Save shuffle command-line arguments for audit trail
-
----
-
 ## Running the Assessment
 
 ### Prerequisites
@@ -220,15 +139,8 @@ python scripts/6_generate_final_report.py
 - **Main report**: `results/FINAL_RISK_ASSESSMENT.md`
 - **Plots**: `results/plots/*.png`
 - **Metrics**: `results/metrics/*.{json,csv}`
-
----
-
-## Detailed results
-
-For more details about this assessment:
-- Review the detailed report: `results/FINAL_RISK_ASSESSMENT.md`
-- Check metric definitions in Appendix: Metric Definitions in `results/FINAL_RISK_ASSESSMENT.md`
-- Examine individual sample metrics: `results/metrics/per_sample_metrics.json`
+  - Check metric definitions in Appendix: Metric Definitions in `results/FINAL_RISK_ASSESSMENT.md`
+  - Examine individual sample metrics: `results/metrics/per_sample_metrics.json`
 
 ---
 
@@ -238,16 +150,9 @@ For more details about this assessment:
 - Main README: `../README.md`
 - Project documentation in repository root
 
-### Assessment Plan
-- Original plan: See commit history or JSONL transcript
-
 ### Data Locations
 > **Note**: Paths below are placeholders. Update with actual synthetic VCF output directories.
 - Somatic VCFs: `<SOMATIC_VCF_DIR>/synthetic_*.vcf.gz`
 - Germline VCFs: `<GERMLINE_VCF_DIR>/synthetic_*.vcf.gz`
 - Somatic logs: `<SOMATIC_VCF_DIR>/*.log`
 - Germline logs: `<GERMLINE_VCF_DIR>/*.log`
-
----
-
-*Assessment completed: 2026-03-11*

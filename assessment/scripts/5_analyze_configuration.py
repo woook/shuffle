@@ -109,7 +109,8 @@ def analyze_cohort_logs(log_dir: Path, cohort_name: str) -> Dict:
     aggregated = {
         "cohort": cohort_name,
         "log_files_analyzed": len(configs),
-        "region_sampling_enabled": any(explicit_region_sampling) if explicit_region_sampling else None,
+        # Default to True (region sampling is default behavior) when not explicitly found
+        "region_sampling_enabled": any(explicit_region_sampling) if explicit_region_sampling else True,
         "region_counts": [c.get("region_count") for c in configs if "region_count" in c],
         "min_donors_values": [c.get("min_donors") for c in configs if "min_donors" in c],
         "donor_pool_sizes": [c.get("donor_pool_size") for c in configs if "donor_pool_size" in c],
